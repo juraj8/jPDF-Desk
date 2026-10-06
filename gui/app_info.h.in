@@ -1,0 +1,11 @@
+#pragma once
+
+// Generated from CMake project metadata; do not edit the generated header.
+namespace AppInfo {
+inline constexpr const char *name = R"info(@PDF_FILLER_DISPLAY_NAME@)info";
+inline constexpr const char *version = R"info(@PROJECT_VERSION@)info";
+inline constexpr const char *description = R"info(@PROJECT_DESCRIPTION@)info";
+inline constexpr const char *author = R"info(@PDF_FILLER_AUTHOR@)info";
+inline constexpr const char *homepage = R"info(@PDF_FILLER_PROJECT_URL@)info";
+inline constexpr const char *platform = R"info(@CMAKE_SYSTEM_NAME@ / @CMAKE_SYSTEM_PROCESSOR@)info";
+}

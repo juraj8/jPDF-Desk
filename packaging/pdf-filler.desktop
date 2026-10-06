@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=jPDF Desk
+Comment=View, fill, sign and secure PDF documents
+Exec=pdf-filler %f
+MimeType=application/pdf;
+Icon=pdf-filler
+Terminal=false
+Categories=Office;

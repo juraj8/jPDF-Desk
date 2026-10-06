@@ -1,0 +1,6 @@
+[submodule "thirdparty/qtbase"]
+	path = thirdparty/qtbase
+	url = https://github.com/qt/qtbase.git
+[submodule "thirdparty/mupdf"]
+	path = thirdparty/mupdf
+	url = https://github.com/ArtifexSoftware/mupdf.git

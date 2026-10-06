@@ -1,0 +1,10 @@
+/* XPM */
+static const char *down_dark[] = {
+"7 4 2 1",
+"  c None",
+". c #e2e8f0",
+".......",
+" ..... ",
+"  ...  ",
+"   .   "
+};

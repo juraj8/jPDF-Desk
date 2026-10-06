@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">jPDF Desk</title>
+  <desc id="desc">A completed form with a turquoise checkmark and a blue pen on an indigo tile.</desc>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#10204B"/>
+      <stop offset="1" stop-color="#3549AA"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EAF2FF"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#6BE9DF"/>
+      <stop offset="1" stop-color="#2EA8DE"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+  <path d="M106 66c45-28 96-36 152-31" fill="none" stroke="#92A9F9" stroke-opacity=".25" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="410" cy="108" r="8" fill="#76E5D8" opacity=".7"/>
+  <circle cx="91" cy="404" r="5" fill="#A6B7FF" opacity=".55"/>
+  <!-- Page shadow and folded sheet -->
+  <path d="M139 91h175l75 75v245a24 24 0 0 1-24 24H139a24 24 0 0 1-24-24V115a24 24 0 0 1 24-24Z" fill="#07133A" opacity=".25" transform="translate(4 10)"/>
+  <path d="M139 91h175l75 75v245a24 24 0 0 1-24 24H139a24 24 0 0 1-24-24V115a24 24 0 0 1 24-24Z" fill="url(#paper)"/>
+  <path d="M314 91v51a24 24 0 0 0 24 24h51Z" fill="#BDCCF4"/>
+  <path d="M314 91v51a24 24 0 0 0 24 24h51" fill="none" stroke="#9AAFE7" stroke-width="2"/>
+  <!-- Form fields -->
+  <rect x="149" y="180" width="137" height="12" rx="6" fill="#253C78"/>
+  <rect x="149" y="207" width="194" height="8" rx="4" fill="#C5D2EA"/>
+  <rect x="149" y="248" width="120" height="10" rx="5" fill="#8095C4"/>
+  <rect x="149" y="276" width="194" height="8" rx="4" fill="#C5D2EA"/>
+  <rect x="149" y="319" width="43" height="43" rx="10" fill="#D6F7F4"/>
+  <path d="m160 340 9 9 16-19" fill="none" stroke="#168D94" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="208" y="326" width="104" height="9" rx="4.5" fill="#4D79AF"/>
+  <rect x="208" y="347" width="75" height="7" rx="3.5" fill="#C5D2EA"/>
+  <!-- Pen: cap, barrel, metal ferrule and nib -->
+  <g transform="rotate(40 338 327)">
+    <rect x="324" y="250" width="28" height="132" rx="10" fill="#112A67" opacity=".25" transform="translate(6 6)"/>
+    <rect x="324" y="240" width="28" height="116" rx="9" fill="url(#pen)"/>
+    <rect x="324" y="239" width="28" height="20" rx="8" fill="#174383"/>
+    <rect x="324" y="339" width="28" height="15" fill="#E3F4FF"/>
+    <path d="M324 354h28l-14 37Z" fill="#F2CF97"/>
+    <path d="m333 379 5 12 5-12Z" fill="#18336D"/>
+    <path d="M331 266v61" fill="none" stroke="#E7FFFA" stroke-opacity=".75" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

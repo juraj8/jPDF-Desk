@@ -1,0 +1,286 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "default",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/.build/default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_STANDARD": "17",
+        "CMAKE_CXX_EXTENSIONS": "ON",
+        "CMAKE_POSITION_INDEPENDENT_CODE": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "default",
+      "displayName": "Debug Build",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/.build/debug"
+    },
+    {
+      "name": "release",
+      "inherits": "default",
+      "binaryDir": "${sourceDir}/.build/linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinSizeRel",
+        "BUILD_TESTING": "OFF",
+        "OPENSSL_USE_STATIC_LIBS": "ON"
+      }
+    },
+    {
+      "name": "macos-arm64",
+      "inherits": "release",
+      "displayName": "macOS Apple Silicon application",
+      "description": "Build natively on Apple Silicon macOS; supply OPENSSL_ROOT_DIR if needed.",
+      "binaryDir": "${sourceDir}/.build/macos-arm64",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_MACOSX_BUNDLE": "ON"
+      }
+    },
+    {
+      "name": "mingw",
+      "inherits": "default",
+      "displayName": "MinGW Build",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/.build/default-mingw",
+      "toolchainFile": "${sourceDir}/cmake/toolchain-mingw.cmake",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "PDF_FILLER_WITH_OPENSSL": "OFF",
+        "QT_HOST_PATH": "${sourceDir}/.build/linux-release"
+      }
+    },
+    {
+      "name": "release-win",
+      "inherits": "mingw",
+      "displayName": "MinGW Release Build",
+      "binaryDir": "${sourceDir}/.build/windows-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinSizeRel",
+        "BUILD_TESTING": "OFF",
+        "OPENSSL_USE_STATIC_LIBS": "ON",
+        "PDF_FILLER_SINGLE_EXECUTABLE": "ON"
+      }
+    },
+    {
+      "name": "linux-executable",
+      "inherits": "release",
+      "displayName": "Linux single executable",
+      "binaryDir": "${sourceDir}/.build/linux-executable",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {}
+    },
+    {
+      "name": "linux-aarch64",
+      "inherits": "release",
+      "displayName": "Linux AArch64 cross-build",
+      "description": "Requires AArch64 GCC/G++, a populated /opt/sysroot, and native Qt host tools built with release.",
+      "binaryDir": "${sourceDir}/.build/linux-aarch64",
+      "toolchainFile": "${sourceDir}/cmake/aarch64-toolchain.cmake",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "QT_HOST_PATH": "${sourceDir}/.build/linux-release"
+      }
+    },
+    {
+      "name": "windows-executable",
+      "inherits": "release-win",
+      "displayName": "Windows single executable",
+      "binaryDir": "${sourceDir}/.build/windows-executable",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {}
+    },
+    {
+      "name": "linux-deb",
+      "inherits": "release",
+      "displayName": "Linux DEB package",
+      "binaryDir": "${sourceDir}/.build/linux-deb",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "/usr",
+        "CPACK_GENERATOR": "DEB"
+      }
+    },
+    {
+      "name": "linux-rpm",
+      "inherits": "release",
+      "displayName": "Linux RPM package",
+      "binaryDir": "${sourceDir}/.build/linux-rpm",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "/usr",
+        "CPACK_GENERATOR": "RPM"
+      }
+    },
+    {
+      "name": "linux-appimage",
+      "inherits": "release",
+      "displayName": "Linux AppImage",
+      "binaryDir": "${sourceDir}/.build/linux-appimage",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "/usr",
+        "PDF_FILLER_BUILD_APPIMAGE": "ON"
+      }
+    },
+    {
+      "name": "windows-installer",
+      "inherits": "release-win",
+      "displayName": "Windows NSIS installer",
+      "binaryDir": "${sourceDir}/.build/windows-installer",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CPACK_GENERATOR": "NSIS"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "release-win",
+      "configurePreset": "release-win"
+    },
+    {
+      "name": "macos-arm64",
+      "configurePreset": "macos-arm64",
+      "targets": [
+        "pdf-filler"
+      ]
+    },
+    {
+      "name": "default",
+      "configurePreset": "release"
+    },
+    {
+      "name": "linux-executable",
+      "configurePreset": "linux-executable",
+      "targets": [
+        "pdf-filler"
+      ]
+    },
+    {
+      "name": "linux-aarch64",
+      "configurePreset": "linux-aarch64",
+      "targets": [
+        "pdf-filler"
+      ]
+    },
+    {
+      "name": "windows-executable",
+      "configurePreset": "windows-executable",
+      "targets": [
+        "pdf-filler"
+      ]
+    },
+    {
+      "name": "linux-deb",
+      "configurePreset": "linux-deb",
+      "targets": [
+        "pdf-filler"
+      ]
+    },
+    {
+      "name": "linux-rpm",
+      "configurePreset": "linux-rpm",
+      "targets": [
+        "pdf-filler"
+      ]
+    },
+    {
+      "name": "linux-appimage",
+      "configurePreset": "linux-appimage",
+      "targets": [
+        "appimage"
+      ]
+    },
+    {
+      "name": "windows-installer",
+      "configurePreset": "windows-installer",
+      "targets": [
+        "pdf-filler"
+      ]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ],
+  "packagePresets": [
+    {
+      "name": "linux-deb",
+      "configurePreset": "linux-deb",
+      "generators": [
+        "DEB"
+      ]
+    },
+    {
+      "name": "linux-rpm",
+      "configurePreset": "linux-rpm",
+      "generators": [
+        "RPM"
+      ]
+    },
+    {
+      "name": "windows-installer",
+      "configurePreset": "windows-installer",
+      "generators": [
+        "NSIS"
+      ]
+    }
+  ]
+}
