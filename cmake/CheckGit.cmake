@@ -3,7 +3,7 @@
 #
 message(DEBUG "Git checking CM assembly v0.4.0")
 
-option(DO_GIT_CHECK "Check git settings." ON)
+option(DO_GIT_CHECK "Check git settings." OFF)
 
 if(DO_GIT_CHECK)
   include(CMakeParseArguments)
