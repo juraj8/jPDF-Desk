@@ -1,5 +1,5 @@
 #include "ui/print_dialog.h"
-#include "pdf_filler/printing/pdf_printing.h"
+#include "jpdf_desk/printing/pdf_printing.h"
 
 #include <QApplication>
 #include <QComboBox>

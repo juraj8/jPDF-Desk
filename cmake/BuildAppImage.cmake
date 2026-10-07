@@ -16,9 +16,9 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env
         "APPIMAGE_EXTRACT_AND_RUN=1" "OUTPUT=${APPIMAGE_NAME}"
         "${LINUXDEPLOY}" --appdir "${appdir}"
-        --executable "${appdir}/usr/bin/pdf-filler"
-        --desktop-file "${appdir}/usr/share/applications/pdf-filler.desktop"
-        --icon-file "${appdir}/usr/share/icons/hicolor/256x256/apps/pdf-filler.png"
+        --executable "${appdir}/usr/bin/jpdf-desk"
+        --desktop-file "${appdir}/usr/share/applications/jpdf-desk.desktop"
+        --icon-file "${appdir}/usr/share/icons/hicolor/256x256/apps/jpdf-desk.png"
         --output appimage
     WORKING_DIRECTORY "${output_dir}"
     COMMAND_ERROR_IS_FATAL ANY

@@ -1,19 +1,19 @@
 ; Advertise PDF support without replacing the user's chosen default handler.
-WriteRegStr HKLM "Software\Classes\jPDF.Filler.PDF" "" "PDF document"
-WriteRegStr HKLM "Software\Classes\jPDF.Filler.PDF\DefaultIcon" "" '$\"$INSTDIR\bin\pdf-filler.exe$\",0'
-WriteRegStr HKLM "Software\Classes\jPDF.Filler.PDF\shell\open\command" "" '$\"$INSTDIR\bin\pdf-filler.exe$\" $\"%1$\"'
-WriteRegStr HKLM "Software\Classes\.pdf\OpenWithProgids" "jPDF.Filler.PDF" ""
+WriteRegStr HKLM "Software\Classes\jPDF.Desk.PDF" "" "PDF document"
+WriteRegStr HKLM "Software\Classes\jPDF.Desk.PDF\DefaultIcon" "" '$\"$INSTDIR\bin\jpdf-desk.exe$\",0'
+WriteRegStr HKLM "Software\Classes\jPDF.Desk.PDF\shell\open\command" "" '$\"$INSTDIR\bin\jpdf-desk.exe$\" $\"%1$\"'
+WriteRegStr HKLM "Software\Classes\.pdf\OpenWithProgids" "jPDF.Desk.PDF" ""
 
 ; Explorer's Open With list, including executable-based application discovery.
-WriteRegStr HKLM "Software\Classes\Applications\pdf-filler.exe" "FriendlyAppName" "@PDF_FILLER_DISPLAY_NAME@"
-WriteRegStr HKLM "Software\Classes\Applications\pdf-filler.exe\SupportedTypes" ".pdf" ""
-WriteRegStr HKLM "Software\Classes\Applications\pdf-filler.exe\shell\open\command" "" '$\"$INSTDIR\bin\pdf-filler.exe$\" $\"%1$\"'
+WriteRegStr HKLM "Software\Classes\Applications\jpdf-desk.exe" "FriendlyAppName" "@JPDF_DESK_DISPLAY_NAME@"
+WriteRegStr HKLM "Software\Classes\Applications\jpdf-desk.exe\SupportedTypes" ".pdf" ""
+WriteRegStr HKLM "Software\Classes\Applications\jpdf-desk.exe\shell\open\command" "" '$\"$INSTDIR\bin\jpdf-desk.exe$\" $\"%1$\"'
 
 ; Windows Settings > Apps > Default apps.
-WriteRegStr HKLM "Software\jPDF Desk\Capabilities" "ApplicationName" "@PDF_FILLER_DISPLAY_NAME@"
+WriteRegStr HKLM "Software\jPDF Desk\Capabilities" "ApplicationName" "@JPDF_DESK_DISPLAY_NAME@"
 WriteRegStr HKLM "Software\jPDF Desk\Capabilities" "ApplicationDescription" "View, fill, sign and secure PDF documents"
-WriteRegStr HKLM "Software\jPDF Desk\Capabilities" "ApplicationIcon" '$\"$INSTDIR\bin\pdf-filler.exe$\",0'
-WriteRegStr HKLM "Software\jPDF Desk\Capabilities\FileAssociations" ".pdf" "jPDF.Filler.PDF"
+WriteRegStr HKLM "Software\jPDF Desk\Capabilities" "ApplicationIcon" '$\"$INSTDIR\bin\jpdf-desk.exe$\",0'
+WriteRegStr HKLM "Software\jPDF Desk\Capabilities\FileAssociations" ".pdf" "jPDF.Desk.PDF"
 WriteRegStr HKLM "Software\RegisteredApplications" "jPDF Desk" "Software\jPDF Desk\Capabilities"
 
 System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'

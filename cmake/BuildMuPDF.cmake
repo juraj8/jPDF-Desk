@@ -41,7 +41,7 @@ endif()
 
 # MuPDF's optional HTML, JS, XPS, SVG, Brotli and document-export engines
 # require more submodules. The editor only opens and writes PDF files.
-ExternalProject_Add(pdf-filler-mupdf-build
+ExternalProject_Add(jpdf-desk-mupdf-build
     SOURCE_DIR "${MUPDF_SOURCE_DIR}"
     CONFIGURE_COMMAND ""
     BUILD_IN_SOURCE OFF
@@ -58,16 +58,16 @@ ExternalProject_Add(pdf-filler-mupdf-build
         "${MUPDF_OUTPUT_DIR}/libmupdf-third.a"
 )
 
-add_library(pdf-filler-mupdf INTERFACE)
-add_dependencies(pdf-filler-mupdf pdf-filler-mupdf-build)
-target_include_directories(pdf-filler-mupdf INTERFACE "${MUPDF_SOURCE_DIR}/include")
+add_library(jpdf-desk-mupdf INTERFACE)
+add_dependencies(jpdf-desk-mupdf jpdf-desk-mupdf-build)
+target_include_directories(jpdf-desk-mupdf INTERFACE "${MUPDF_SOURCE_DIR}/include")
 # Library order matters for static archives. All dependencies are bundled
 # into libmupdf-third.a, so no libmupdf.so is needed at runtime.
-target_link_libraries(pdf-filler-mupdf INTERFACE
+target_link_libraries(jpdf-desk-mupdf INTERFACE
     "${MUPDF_OUTPUT_DIR}/libmupdf.a"
     "${MUPDF_OUTPUT_DIR}/libmupdf-third.a"
 )
 if(UNIX)
     find_package(Threads REQUIRED)
-    target_link_libraries(pdf-filler-mupdf INTERFACE Threads::Threads ${CMAKE_DL_LIBS} m)
+    target_link_libraries(jpdf-desk-mupdf INTERFACE Threads::Threads ${CMAKE_DL_LIBS} m)
 endif()

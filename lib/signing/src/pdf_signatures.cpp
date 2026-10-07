@@ -1,4 +1,4 @@
-#include "pdf_filler/signing/pdf_signatures.h"
+#include "jpdf_desk/signing/pdf_signatures.h"
 
 #include <QFile>
 #include <QSaveFile>
@@ -94,7 +94,7 @@ void signPdfSnapshot(fz_context *ctx, const QString &input, const QString &outpu
         if (pdf_needs_password(ctx, doc) && !pdf_authenticate_password(ctx, doc, password.constData()))
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "Invalid PDF password");
         page = pdf_load_page(ctx, doc, 0);
-        char name[] = "PdfFillerDigitalSignature";
+        char name[] = "JPDFDeskDigitalSignature";
         pdf_annot *widget = pdf_create_signature_widget(ctx, page, name);
         // Invisible signature: independent of the handwritten image.
         pdf_sign_signature_with_appearance(ctx, widget, signer, std::time(nullptr), nullptr);

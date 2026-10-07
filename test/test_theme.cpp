@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     // Theme preferences in this test must never touch the real user's settings.
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, directory.path());
-    QCoreApplication::setOrganizationName(QStringLiteral("PDF Filler tests"));
+    QCoreApplication::setOrganizationName(QStringLiteral("jPDF Desk tests"));
     QCoreApplication::setApplicationName(QStringLiteral("Theme"));
     for (const bool dark : {false, true}) {
         const auto &c = UiTheme::colors(dark);
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
     MainWindow nextSession;
     if (!nextSession.findChild<QAction *>(QStringLiteral("darkThemeAction"))->isChecked()) return 11;
     // Optional screenshots for manual review; no artifacts are written normally.
-    const QString screenshots = qEnvironmentVariable("PDF_FILLER_THEME_SCREENSHOTS");
+    const QString screenshots = qEnvironmentVariable("JPDF_DESK_THEME_SCREENSHOTS");
     if (!screenshots.isEmpty()) window.grab().save(screenshots + QStringLiteral("/dark.png"));
 
     const QString path = directory.filePath(QStringLiteral("input.pdf"));

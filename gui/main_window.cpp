@@ -1,5 +1,5 @@
 #include "main_window.h"
-#include "pdf_filler/printing/pdf_printing.h"
+#include "jpdf_desk/printing/pdf_printing.h"
 #include "ui/about_dialog.h"
 #include "ui/editable_text.h"
 #include "ui/mark_item.h"
@@ -53,8 +53,8 @@
 MainWindow::MainWindow(QWidget *parent, SignatureServices services)
     : QMainWindow(parent), pdf_(std::move(services))
 {
-    Q_INIT_RESOURCE(pdf_filler_branding);
-    Q_INIT_RESOURCE(pdf_filler_ui);
+    Q_INIT_RESOURCE(jpdf_desk_branding);
+    Q_INIT_RESOURCE(jpdf_desk_ui);
     setWindowTitle(tr("jPDF Desk"));
     setWindowIcon(QIcon(QStringLiteral(":/branding/icon.png")));
     auto *root = new QWidget(this);

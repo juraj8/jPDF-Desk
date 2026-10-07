@@ -6,10 +6,10 @@ project(jpdf-desk
     LANGUAGES C CXX
 )
 
-set(PDF_FILLER_DISPLAY_NAME "jPDF Desk")
-set(PDF_FILLER_AUTHOR "Juraj Giertl" CACHE STRING "Project author shown in the About dialog")
-set(PDF_FILLER_AUTHOR_EMAIL "j74a8g@gmail.com" CACHE STRING "Author email used in package contact metadata")
-set(PDF_FILLER_PROJECT_URL "${PROJECT_HOMEPAGE_URL}" CACHE STRING "Project homepage shown in the About dialog")
+set(JPDF_DESK_DISPLAY_NAME "jPDF Desk")
+set(JPDF_DESK_AUTHOR "Juraj Giertl" CACHE STRING "Project author shown in the About dialog")
+set(JPDF_DESK_AUTHOR_EMAIL "j74a8g@gmail.com" CACHE STRING "Author email used in package contact metadata")
+set(JPDF_DESK_PROJECT_URL "${PROJECT_HOMEPAGE_URL}" CACHE STRING "Project homepage shown in the About dialog")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_STANDARD 17)
@@ -31,13 +31,13 @@ if(UNIX AND NOT APPLE)
     endforeach()
 endif()
 
-option(PDF_FILLER_SINGLE_EXECUTABLE "Link MinGW runtime dependencies into the executable" OFF)
-option(PDF_FILLER_BUILD_APPIMAGE "Enable the AppImage packaging target (requires linuxdeploy)" OFF)
+option(JPDF_DESK_SINGLE_EXECUTABLE "Link MinGW runtime dependencies into the executable" OFF)
+option(JPDF_DESK_BUILD_APPIMAGE "Enable the AppImage packaging target (requires linuxdeploy)" OFF)
 include(GNUInstallDirs)
 include(CTest)
 include(CheckGit)
 
-set(PDF_FILLER_BUILD_TESTING ${BUILD_TESTING})
+set(JPDF_DESK_BUILD_TESTING ${BUILD_TESTING})
 add_subdirectory(thirdparty/qtbase thirdparty/qtbase-build EXCLUDE_FROM_ALL)
 
 # GCC 14 reports false positives while optimizing Qt and its bundled md4c
@@ -52,7 +52,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
     )
 endif()
 
-set(BUILD_TESTING ${PDF_FILLER_BUILD_TESTING} CACHE BOOL "Build application tests" FORCE)
+set(BUILD_TESTING ${JPDF_DESK_BUILD_TESTING} CACHE BOOL "Build application tests" FORCE)
 add_subdirectory(lib)
 add_subdirectory(gui)
 
@@ -61,6 +61,6 @@ if(BUILD_TESTING)
 endif()
 
 include(cmake/CPackConfig.cmake)
-if(PDF_FILLER_BUILD_APPIMAGE)
+if(JPDF_DESK_BUILD_APPIMAGE)
     include(cmake/AppImage.cmake)
 endif()

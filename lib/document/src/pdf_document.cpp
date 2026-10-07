@@ -1,5 +1,5 @@
-#include "pdf_filler/document/pdf_document.h"
-#include "pdf_filler/signing/pdf_signatures.h"
+#include "jpdf_desk/document/pdf_document.h"
+#include "jpdf_desk/signing/pdf_signatures.h"
 
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
@@ -14,12 +14,26 @@
 
 namespace {
 constexpr float scale = 1.5f;
-constexpr const char *owner = "PDF Filler";
-constexpr const char *alignedSubject = "PDF Filler aligned text";
-constexpr const char *checkSubject = "PDF Filler checkmark";
-constexpr const char *crossSubject = "PDF Filler cross";
-constexpr const char *signatureSubject = "PDF Filler signature";
-constexpr const char *signatureMetadata = "info:PdfFillerSignature";
+constexpr const char *owner = "jPDF Desk";
+constexpr const char *alignedSubject = "jPDF Desk aligned text";
+constexpr const char *checkSubject = "jPDF Desk checkmark";
+constexpr const char *crossSubject = "jPDF Desk cross";
+constexpr const char *signatureSubject = "jPDF Desk signature";
+constexpr const char *signatureMetadata = "info:JPDFDeskSignature";
+// Read legacy identifiers only for compatibility with already saved PDFs.
+constexpr const char *legacyOwner = "PDF Filler";
+constexpr const char *legacyAlignedSubject = "PDF Filler aligned text";
+constexpr const char *legacyCheckSubject = "PDF Filler checkmark";
+constexpr const char *legacyCrossSubject = "PDF Filler cross";
+constexpr const char *legacySignatureSubject = "PDF Filler signature";
+constexpr const char *legacySignatureMetadata = "info:PdfFillerSignature";
+
+bool matches(const char *value, const char *current, const char *legacy)
+{
+    return value && (strcmp(value, current) == 0 || strcmp(value, legacy) == 0);
+}
+
+bool isOwned(const char *author) { return matches(author, owner, legacyOwner); }
 constexpr const char *editableMetadata[] = {"Title", "Author", "Subject", "Keywords", "Creator", "Producer"};
 constexpr float markSize = 24.0f; // Scene pixels; keep in sync with MarkItem.
 
@@ -339,8 +353,7 @@ QVector<TextField> PdfDocument::fields(int pageNumber) const
         for (pdf_annot *annot = pdf_first_annot(ctx_, page); annot;
              annot = pdf_next_annot(ctx_, annot)) {
             const char *author = pdf_annot_author(ctx_, annot);
-            if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_FREE_TEXT && author &&
-                QByteArray(author) == owner) {
+            if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_FREE_TEXT && isOwned(author)) {
                 const char *text = pdf_annot_contents(ctx_, annot);
                 const char *font = nullptr;
                 float fontSize = 12;
@@ -350,7 +363,7 @@ QVector<TextField> PdfDocument::fields(int pageNumber) const
                 if (fontSize <= 0) fontSize = 12;
                 QRectF rect = toQt(pdf_annot_rect(ctx_, annot));
                 const char *subject = pdf_annot_subject(ctx_, annot);
-                if (subject && strcmp(subject, alignedSubject) == 0)
+                if (matches(subject, alignedSubject, legacyAlignedSubject))
                     rect.translate(0, -textBaselineOffset(fontSize));
                 result.append({rect, QString::fromUtf8(text ? text : ""), fontSize});
             }
@@ -374,9 +387,9 @@ QVector<OptionMark> PdfDocument::marks(int pageNumber) const
             if (pdf_annot_type(ctx_, annot) != PDF_ANNOT_INK) continue;
             const char *author = pdf_annot_author(ctx_, annot);
             const char *subject = pdf_annot_subject(ctx_, annot);
-            if (!author || strcmp(author, owner) != 0 || !subject) continue;
-            const bool isCheck = strcmp(subject, checkSubject) == 0;
-            if ((isCheck || strcmp(subject, crossSubject) == 0) &&
+            if (!isOwned(author) || !subject) continue;
+            const bool isCheck = matches(subject, checkSubject, legacyCheckSubject);
+            if ((isCheck || matches(subject, crossSubject, legacyCrossSubject)) &&
                 pdf_annot_ink_list_count(ctx_, annot) > 0 &&
                 pdf_annot_ink_list_stroke_count(ctx_, annot, 0) > 0) {
                 const fz_point first = pdf_annot_ink_list_stroke_vertex(ctx_, annot, 0, 0);
@@ -397,16 +410,21 @@ QByteArray PdfDocument::signatureTemplate() const
 {
     if (!doc_) return {};
     int size = -1, failed = 0;
+    const char *key = signatureMetadata;
+    fz_var(key);
     fz_try(ctx_) {
-        size = fz_lookup_metadata(ctx_, reinterpret_cast<fz_document *>(doc_),
-                                  signatureMetadata, nullptr, 0);
+        size = fz_lookup_metadata(ctx_, reinterpret_cast<fz_document *>(doc_), key, nullptr, 0);
+        if (size <= 1) {
+            key = legacySignatureMetadata;
+            size = fz_lookup_metadata(ctx_, reinterpret_cast<fz_document *>(doc_), key, nullptr, 0);
+        }
     }
     fz_catch(ctx_) { failed = 1; }
     check(ctx_, failed);
     if (size <= 1 || size > 8 * 1024 * 1024) return {};
     QByteArray encoded(size, '\0');
     fz_try(ctx_) {
-        fz_lookup_metadata(ctx_, reinterpret_cast<fz_document *>(doc_), signatureMetadata,
+        fz_lookup_metadata(ctx_, reinterpret_cast<fz_document *>(doc_), key,
                            encoded.data(), encoded.size());
     }
     fz_catch(ctx_) { failed = 1; }
@@ -427,8 +445,7 @@ QVector<Signature> PdfDocument::signatures(int pageNumber) const
             if (pdf_annot_type(ctx_, annot) != PDF_ANNOT_STAMP) continue;
             const char *author = pdf_annot_author(ctx_, annot);
             const char *subject = pdf_annot_subject(ctx_, annot);
-            if (author && subject && strcmp(author, owner) == 0 &&
-                strcmp(subject, signatureSubject) == 0) {
+            if (isOwned(author) && matches(subject, signatureSubject, legacySignatureSubject)) {
                 const char *contents = pdf_annot_contents(ctx_, annot);
                 const QByteArray png = QByteArray::fromBase64(contents ? contents : "");
                 if (png.startsWith("\x89PNG\r\n\x1a\n") && png.size() < 6 * 1024 * 1024)
@@ -481,8 +498,7 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
         for (pdf_annot *annot = pdf_first_annot(ctx_, page); annot;) {
             pdf_annot *next = pdf_next_annot(ctx_, annot);
             const char *author = pdf_annot_author(ctx_, annot);
-            if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_FREE_TEXT && author &&
-                strcmp(author, owner) == 0)
+            if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_FREE_TEXT && isOwned(author))
                 pdf_delete_annot(ctx_, page, annot);
             annot = next;
         }
@@ -508,9 +524,9 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
                 pdf_annot *next = pdf_next_annot(ctx_, annot);
                 const char *author = pdf_annot_author(ctx_, annot);
                 const char *subject = pdf_annot_subject(ctx_, annot);
-                if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_INK && author && subject &&
-                    strcmp(author, owner) == 0 &&
-                    (strcmp(subject, checkSubject) == 0 || strcmp(subject, crossSubject) == 0))
+                if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_INK && isOwned(author) &&
+                    (matches(subject, checkSubject, legacyCheckSubject) ||
+                     matches(subject, crossSubject, legacyCrossSubject)))
                     pdf_delete_annot(ctx_, page, annot);
                 annot = next;
             }
@@ -545,8 +561,8 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
                 pdf_annot *next = pdf_next_annot(ctx_, annot);
                 const char *author = pdf_annot_author(ctx_, annot);
                 const char *subject = pdf_annot_subject(ctx_, annot);
-                if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_STAMP && author && subject &&
-                    strcmp(author, owner) == 0 && strcmp(subject, signatureSubject) == 0)
+                if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_STAMP && isOwned(author) &&
+                    matches(subject, signatureSubject, legacySignatureSubject))
                     pdf_delete_annot(ctx_, page, annot);
                 annot = next;
             }

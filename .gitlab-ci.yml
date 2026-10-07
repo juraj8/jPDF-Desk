@@ -99,8 +99,8 @@ linux_packages:
       mkdir -p "$output"
       case "$CMAKE_PRESET" in
         linux-executable)
-          test -s ".build/$CMAKE_PRESET/gui/pdf-filler"
-          cp ".build/$CMAKE_PRESET/gui/pdf-filler" "$output/"
+          test -s ".build/$CMAKE_PRESET/gui/jpdf-desk"
+          cp ".build/$CMAKE_PRESET/gui/jpdf-desk" "$output/"
           ;;
         linux-deb)
           cpack --preset "$CMAKE_PRESET"
@@ -128,15 +128,15 @@ windows_packages:
       apt-get install -y --no-install-recommends mingw-w64 mingw-w64-tools nsis
       # QT_HOST_PATH in the MinGW presets points to this native build.
       cmake --preset release --fresh
-      cmake --build --preset release --target pdf-filler --parallel "$BUILD_JOBS"
+      cmake --build --preset release --target jpdf-desk --parallel "$BUILD_JOBS"
       # Windows-target OpenSSL is not available in the Debian image. These
       # packages support editing/printing, but not cryptographic signing.
-      cmake --preset windows-installer --fresh -DPDF_FILLER_WITH_OPENSSL=OFF
+      cmake --preset windows-installer --fresh -DJPDF_DESK_WITH_OPENSSL=OFF
       cmake --build --preset windows-installer --parallel "$BUILD_JOBS"
       cpack --preset windows-installer
       mkdir -p dist/windows-x86_64
-      test -s .build/windows-installer/gui/pdf-filler.exe
-      cp .build/windows-installer/gui/pdf-filler.exe dist/windows-x86_64/
+      test -s .build/windows-installer/gui/jpdf-desk.exe
+      cp .build/windows-installer/gui/jpdf-desk.exe dist/windows-x86_64/
       cp .build/windows-installer/packages/*.exe dist/windows-x86_64/
       (cd dist/windows-x86_64 && sha256sum * > SHA256SUMS)
   artifacts:

@@ -2,9 +2,9 @@
 include(BuildMuPDF)
 
 # Shared value types and provider contracts avoid document/signing dependency cycles.
-add_library(pdf-filler-document-types INTERFACE)
-target_include_directories(pdf-filler-document-types INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/document/include")
-target_link_libraries(pdf-filler-document-types INTERFACE Qt6::Core)
+add_library(jpdf-desk-document-types INTERFACE)
+target_include_directories(jpdf-desk-document-types INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/document/include")
+target_link_libraries(jpdf-desk-document-types INTERFACE Qt6::Core)
 
 add_subdirectory(signing)
 add_subdirectory(document)

@@ -61,7 +61,7 @@
       "toolchainFile": "${sourceDir}/cmake/toolchain-mingw.cmake",
       "cacheVariables": {
         "BUILD_TESTING": "OFF",
-        "PDF_FILLER_WITH_OPENSSL": "OFF",
+        "JPDF_DESK_WITH_OPENSSL": "OFF",
         "QT_HOST_PATH": "${sourceDir}/.build/linux-release"
       }
     },
@@ -74,7 +74,7 @@
         "CMAKE_BUILD_TYPE": "MinSizeRel",
         "BUILD_TESTING": "OFF",
         "OPENSSL_USE_STATIC_LIBS": "ON",
-        "PDF_FILLER_SINGLE_EXECUTABLE": "ON"
+        "JPDF_DESK_SINGLE_EXECUTABLE": "ON"
       }
     },
     {
@@ -159,7 +159,7 @@
       },
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "/usr",
-        "PDF_FILLER_BUILD_APPIMAGE": "ON"
+        "JPDF_DESK_BUILD_APPIMAGE": "ON"
       }
     },
     {
@@ -194,7 +194,7 @@
       "name": "macos-arm64",
       "configurePreset": "macos-arm64",
       "targets": [
-        "pdf-filler"
+        "jpdf-desk"
       ]
     },
     {
@@ -205,35 +205,35 @@
       "name": "linux-executable",
       "configurePreset": "linux-executable",
       "targets": [
-        "pdf-filler"
+        "jpdf-desk"
       ]
     },
     {
       "name": "linux-aarch64",
       "configurePreset": "linux-aarch64",
       "targets": [
-        "pdf-filler"
+        "jpdf-desk"
       ]
     },
     {
       "name": "windows-executable",
       "configurePreset": "windows-executable",
       "targets": [
-        "pdf-filler"
+        "jpdf-desk"
       ]
     },
     {
       "name": "linux-deb",
       "configurePreset": "linux-deb",
       "targets": [
-        "pdf-filler"
+        "jpdf-desk"
       ]
     },
     {
       "name": "linux-rpm",
       "configurePreset": "linux-rpm",
       "targets": [
-        "pdf-filler"
+        "jpdf-desk"
       ]
     },
     {
@@ -247,7 +247,7 @@
       "name": "windows-installer",
       "configurePreset": "windows-installer",
       "targets": [
-        "pdf-filler"
+        "jpdf-desk"
       ]
     }
   ],

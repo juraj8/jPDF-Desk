@@ -1,5 +1,5 @@
-add_library(pdf-filler-document STATIC src/pdf_document.cpp)
-add_library(PdfFiller::Document ALIAS pdf-filler-document)
-target_link_libraries(pdf-filler-document
-    PUBLIC pdf-filler-document-types pdf-filler-signature-services Qt6::Gui
-    PRIVATE pdf-filler-signing pdf-filler-mupdf)
+add_library(jpdf-desk-document STATIC src/pdf_document.cpp)
+add_library(JPDFDesk::Document ALIAS jpdf-desk-document)
+target_link_libraries(jpdf-desk-document
+    PUBLIC jpdf-desk-document-types jpdf-desk-signature-services Qt6::Gui
+    PRIVATE jpdf-desk-signing jpdf-desk-mupdf)

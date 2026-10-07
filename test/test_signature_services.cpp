@@ -1,4 +1,4 @@
-#include "pdf_filler/document/pdf_document.h"
+#include "jpdf_desk/document/pdf_document.h"
 #include <QCoreApplication>
 #include <QFile>
 #include <QTemporaryDir>

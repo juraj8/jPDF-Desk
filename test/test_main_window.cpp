@@ -1,8 +1,8 @@
 #include "main_window.h"
-#ifdef PDF_FILLER_HAS_OPENSSL
-#include "pdf_filler/signing/openssl_provider.h"
+#ifdef JPDF_DESK_HAS_OPENSSL
+#include "jpdf_desk/signing/openssl_provider.h"
 #endif
-#include "pdf_filler/document/pdf_document.h"
+#include "jpdf_desk/document/pdf_document.h"
 #include "ui/signature_image.h"
 #include "ui/editable_text.h"
 #include "ui/mark_item.h"
@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
     SignatureServices services;
-#ifdef PDF_FILLER_HAS_OPENSSL
+#ifdef JPDF_DESK_HAS_OPENSSL
     services = openSslSignatureServices();
 #endif
     MainWindow window(nullptr, services);
@@ -422,8 +422,8 @@ int main(int argc, char **argv)
     fz_drop_context(jpegCtx);
     if (extractSignature(loadSignatureSource(jpegPath)).isNull()) return 42;
     // Allow manual verification with a private photo without making it a test fixture.
-    if (!qEnvironmentVariableIsEmpty("PDF_FILLER_TEST_SIGNATURE") &&
-        extractSignature(loadSignatureSource(qEnvironmentVariable("PDF_FILLER_TEST_SIGNATURE"))).isNull()) return 43;
+    if (!qEnvironmentVariableIsEmpty("JPDF_DESK_TEST_SIGNATURE") &&
+        extractSignature(loadSignatureSource(qEnvironmentVariable("JPDF_DESK_TEST_SIGNATURE"))).isNull()) return 43;
     const QImage inkImage = extractSignature(paper);
     if (inkImage.isNull() || inkImage.width() >= paper.width() ||
         inkImage.pixelColor(0, 0).alpha() != 0 || !extractSignature(QImage()).isNull()) return 34;

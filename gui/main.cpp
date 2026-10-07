@@ -1,20 +1,24 @@
 #include "main_window.h"
-#ifdef PDF_FILLER_HAS_OPENSSL
-#include "pdf_filler/signing/openssl_provider.h"
+#include "app_identity.h"
+#ifdef JPDF_DESK_HAS_OPENSSL
+#include "jpdf_desk/signing/openssl_provider.h"
 #endif
 
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QTimer>
+#include <QMessageBox>
+#include <exception>
 
 int main(int argc, char *argv[])
 {
     QApplication application(argc, argv);
-    // Keep the legacy settings/data identity so existing user assets survive
-    // the branding change. Only the user-visible application name is renamed.
-    QCoreApplication::setOrganizationName(QStringLiteral("PDF Filler"));
-    QCoreApplication::setApplicationName(QStringLiteral("PDF Filler"));
-    QGuiApplication::setApplicationDisplayName(QStringLiteral("jPDF Desk"));
+    try {
+        initializeApplicationIdentity();
+    } catch (const std::exception &e) {
+        QMessageBox::warning(nullptr, QStringLiteral("jPDF Desk — Data migration"),
+                             QString::fromUtf8(e.what()));
+    }
     // Fusion consistently honors the palette on every supported desktop.
     QApplication::setStyle(QStringLiteral("Fusion"));
 
@@ -25,7 +29,7 @@ int main(int argc, char *argv[])
     parser.process(application);
 
     SignatureServices services;
-#ifdef PDF_FILLER_HAS_OPENSSL
+#ifdef JPDF_DESK_HAS_OPENSSL
     services = openSslSignatureServices();
 #endif
     MainWindow window(nullptr, services);

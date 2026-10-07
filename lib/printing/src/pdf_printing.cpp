@@ -1,5 +1,5 @@
-#include "pdf_filler/printing/pdf_printing.h"
-#include "pdf_filler/document/pdf_document.h"
+#include "jpdf_desk/printing/pdf_printing.h"
+#include "jpdf_desk/document/pdf_document.h"
 
 #include <QPageRanges>
 #include <QPainter>

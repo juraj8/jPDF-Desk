@@ -1,15 +1,15 @@
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "AppImage packaging is supported only for Linux targets")
 endif()
-find_program(PDF_FILLER_LINUXDEPLOY_EXECUTABLE NAMES linuxdeploy REQUIRED)
+find_program(JPDF_DESK_LINUXDEPLOY_EXECUTABLE NAMES linuxdeploy REQUIRED)
 
 add_custom_target(appimage
     COMMAND "${CMAKE_COMMAND}"
         "-DBUILD_DIR=${PROJECT_BINARY_DIR}"
-        "-DLINUXDEPLOY=${PDF_FILLER_LINUXDEPLOY_EXECUTABLE}"
+        "-DLINUXDEPLOY=${JPDF_DESK_LINUXDEPLOY_EXECUTABLE}"
         "-DAPPIMAGE_NAME=${PROJECT_NAME}-${PROJECT_VERSION}-${CMAKE_SYSTEM_PROCESSOR}.AppImage"
         -P "${PROJECT_SOURCE_DIR}/cmake/BuildAppImage.cmake"
-    DEPENDS pdf-filler
+    DEPENDS jpdf-desk
     COMMENT "Bundling the application and runtime libraries into an AppImage"
     VERBATIM
 )

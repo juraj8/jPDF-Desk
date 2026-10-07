@@ -1,5 +1,5 @@
-#include "pdf_filler/document/pdf_document.h"
-#include "pdf_filler/signing/openssl_provider.h"
+#include "jpdf_desk/document/pdf_document.h"
+#include "jpdf_desk/signing/openssl_provider.h"
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
 #include <QCoreApplication>
@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     const QString key = dir.filePath("key.pem"), cert = dir.filePath("cert.pem");
     const QString pfx = dir.filePath("cert.p12");
     if (!run({"req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key,
-              "-out", cert, "-subj", "/CN=PDF Filler Test", "-days", "1"}) ||
+              "-out", cert, "-subj", "/CN=jPDF Desk Test", "-days", "1"}) ||
         !run({"pkcs12", "-export", "-inkey", key, "-in", cert, "-out", pfx,
               "-passout", "pass:test-password"})) return 2;
     fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     const auto statuses = pdf.checkDigitalSignatures();
     if (statuses.size() != 1 || !statuses[0].signedField || !statuses[0].digestValid ||
         statuses[0].certificateTrusted || statuses[0].changedSinceSigning ||
-        !statuses[0].error.isEmpty() || !statuses[0].signer.contains("PDF Filler Test")) return 10;
+        !statuses[0].error.isEmpty() || !statuses[0].signer.contains("jPDF Desk Test")) return 10;
 
     // Changing a signed byte must fail integrity, even if the PDF still opens.
     const QString tamperedPath = dir.filePath("tampered.pdf");

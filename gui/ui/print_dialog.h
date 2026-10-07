@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QDialog>
-#include "pdf_filler/printing/pdf_printing.h"
+#include "jpdf_desk/printing/pdf_printing.h"
 #include <functional>
 
 class QPrinter;

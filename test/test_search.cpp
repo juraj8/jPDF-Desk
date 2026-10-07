@@ -1,5 +1,5 @@
 #include "main_window.h"
-#include "pdf_filler/document/pdf_document.h"
+#include "jpdf_desk/document/pdf_document.h"
 #include "ui/editable_text.h"
 #include "ui/page_annotations.h"
 

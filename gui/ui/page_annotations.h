@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pdf_filler/document/pdf_types.h"
+#include "jpdf_desk/document/pdf_types.h"
 
 class QGraphicsItem;
 class QGraphicsScene;

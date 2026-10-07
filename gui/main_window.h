@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pdf_filler/document/pdf_document.h"
+#include "jpdf_desk/document/pdf_document.h"
 #include "signature_store.h"
 #include "ui/theme.h"
 #include <QMainWindow>

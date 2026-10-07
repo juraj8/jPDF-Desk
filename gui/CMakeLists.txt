@@ -1,6 +1,8 @@
 configure_file(app_info.h.in generated/app_info.h @ONLY)
 
-add_library(pdf-filler-gui-lib STATIC
+add_library(jpdf-desk-gui-lib STATIC
+    app_identity.cpp
+    app_identity.h
     ui/about_dialog.cpp
     ui/about_dialog.h
     ui/dialog_helpers.cpp
@@ -46,62 +48,62 @@ add_library(pdf-filler-gui-lib STATIC
     ui/zoom_controls.cpp
     ui/zoom_controls.h
 )
-target_include_directories(pdf-filler-gui-lib
+target_include_directories(jpdf-desk-gui-lib
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
-target_link_libraries(pdf-filler-gui-lib
-    PUBLIC pdf-filler-document pdf-filler-printing Qt6::Widgets
-    PRIVATE pdf-filler-mupdf
+target_link_libraries(jpdf-desk-gui-lib
+    PUBLIC jpdf-desk-document jpdf-desk-printing Qt6::Widgets
+    PRIVATE jpdf-desk-mupdf
 )
 
-set(PDF_FILLER_LOGO "${PROJECT_SOURCE_DIR}/branding/pdf-filler-logo-256.png")
-set_source_files_properties("${PDF_FILLER_LOGO}" PROPERTIES QT_RESOURCE_ALIAS icon.png)
-qt6_add_resources(pdf-filler-gui-lib pdf_filler_branding
+set(JPDF_DESK_LOGO "${PROJECT_SOURCE_DIR}/branding/jpdf-desk-logo-256.png")
+set_source_files_properties("${JPDF_DESK_LOGO}" PROPERTIES QT_RESOURCE_ALIAS icon.png)
+qt6_add_resources(jpdf-desk-gui-lib jpdf_desk_branding
     PREFIX /branding
-    FILES "${PDF_FILLER_LOGO}"
+    FILES "${JPDF_DESK_LOGO}"
 )
 
-set(PDF_FILLER_UI_ICONS
+set(JPDF_DESK_UI_ICONS
     ui/icons/up-light.xpm ui/icons/down-light.xpm
     ui/icons/up-dark.xpm ui/icons/down-dark.xpm
 )
-foreach(icon IN LISTS PDF_FILLER_UI_ICONS)
+foreach(icon IN LISTS JPDF_DESK_UI_ICONS)
     get_filename_component(icon_name "${icon}" NAME)
     set_source_files_properties("${icon}" PROPERTIES QT_RESOURCE_ALIAS "${icon_name}")
 endforeach()
-qt6_add_resources(pdf-filler-gui-lib pdf_filler_ui
+qt6_add_resources(jpdf-desk-gui-lib jpdf_desk_ui
     PREFIX /ui
-    FILES ${PDF_FILLER_UI_ICONS}
+    FILES ${JPDF_DESK_UI_ICONS}
 )
 
-qt_add_executable(pdf-filler WIN32 MANUAL_FINALIZATION main.cpp)
+qt_add_executable(jpdf-desk WIN32 MANUAL_FINALIZATION main.cpp)
 if(WIN32)
     # Own the app manifest rather than depending on Qt's subdirectory-local
     # template path when QtBase is built in the same CMake project.
-    configure_file(windows/pdf-filler.manifest.in pdf-filler.manifest @ONLY)
-    set(PDF_FILLER_WINDOWS_ICON "${PROJECT_SOURCE_DIR}/branding/pdf-filler.ico")
-    configure_file(windows/pdf-filler.rc.in pdf-filler.rc @ONLY)
-    target_sources(pdf-filler PRIVATE
-        "${CMAKE_CURRENT_BINARY_DIR}/pdf-filler.manifest"
-        "${CMAKE_CURRENT_BINARY_DIR}/pdf-filler.rc"
+    configure_file(windows/jpdf-desk.manifest.in jpdf-desk.manifest @ONLY)
+    set(JPDF_DESK_WINDOWS_ICON "${PROJECT_SOURCE_DIR}/branding/jpdf-desk.ico")
+    configure_file(windows/jpdf-desk.rc.in jpdf-desk.rc @ONLY)
+    target_sources(jpdf-desk PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/jpdf-desk.manifest"
+        "${CMAKE_CURRENT_BINARY_DIR}/jpdf-desk.rc"
     )
-    set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/pdf-filler.rc"
-        PROPERTIES OBJECT_DEPENDS "${PDF_FILLER_WINDOWS_ICON}")
+    set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/jpdf-desk.rc"
+        PROPERTIES OBJECT_DEPENDS "${JPDF_DESK_WINDOWS_ICON}")
 endif()
-target_link_libraries(pdf-filler PRIVATE pdf-filler-gui-lib)
-if(PDF_FILLER_SINGLE_EXECUTABLE AND MINGW)
+target_link_libraries(jpdf-desk PRIVATE jpdf-desk-gui-lib)
+if(JPDF_DESK_SINGLE_EXECUTABLE AND MINGW)
     # Include libwinpthread as well as the GCC/C++ runtimes. Third-party
     # dependencies (including OpenSSL) must also be available as static archives.
-    target_link_options(pdf-filler PRIVATE -static)
+    target_link_options(jpdf-desk PRIVATE -static)
 endif()
-if(TARGET pdf-filler-openssl)
-    target_link_libraries(pdf-filler PRIVATE pdf-filler-openssl)
-    target_compile_definitions(pdf-filler PRIVATE PDF_FILLER_HAS_OPENSSL)
+if(TARGET jpdf-desk-openssl)
+    target_link_libraries(jpdf-desk PRIVATE jpdf-desk-openssl)
+    target_compile_definitions(jpdf-desk PRIVATE JPDF_DESK_HAS_OPENSSL)
 endif()
 
-set(PDF_FILLER_PLATFORM_PLUGINS)
-set(PDF_FILLER_PLATFORM_PLUGIN_OBJECTS)
+set(JPDF_DESK_PLATFORM_PLUGINS)
+set(JPDF_DESK_PLATFORM_PLUGIN_OBJECTS)
 foreach(_platform_plugin
     QOffscreenIntegrationPlugin
     QXcbIntegrationPlugin
@@ -111,8 +113,8 @@ foreach(_platform_plugin
     QCupsPrinterSupportPlugin
 )
     if(TARGET Qt6::${_platform_plugin})
-        list(APPEND PDF_FILLER_PLATFORM_PLUGINS Qt6::${_platform_plugin})
-        list(APPEND PDF_FILLER_PLATFORM_PLUGIN_OBJECTS
+        list(APPEND JPDF_DESK_PLATFORM_PLUGINS Qt6::${_platform_plugin})
+        list(APPEND JPDF_DESK_PLATFORM_PLUGIN_OBJECTS
             $<TARGET_OBJECTS:Qt6::${_platform_plugin}_init>
         )
     endif()
@@ -124,7 +126,7 @@ if(UNIX AND NOT APPLE
 )
     message(FATAL_ERROR
         "Qt was built without an XCB or Wayland desktop platform plugin. "
-        "Install the Linux desktop development packages listed in README.md, "
+        "Install the Linux desktop development packages documented in docs/guide.md, "
         "delete the build directory, and configure again."
     )
 endif()
@@ -133,22 +135,22 @@ if(UNIX AND NOT APPLE AND NOT TARGET Qt6::QCupsPrinterSupportPlugin)
     message(WARNING "Qt has no CUPS printer backend. Install libcups2-dev and reconfigure with --fresh for physical printer support.")
 endif()
 
-add_library(pdf-filler-qt-platform INTERFACE)
-target_link_libraries(pdf-filler-qt-platform INTERFACE ${PDF_FILLER_PLATFORM_PLUGINS})
-target_sources(pdf-filler-qt-platform INTERFACE ${PDF_FILLER_PLATFORM_PLUGIN_OBJECTS})
-target_link_libraries(pdf-filler PRIVATE pdf-filler-qt-platform)
-qt6_finalize_target(pdf-filler)
+add_library(jpdf-desk-qt-platform INTERFACE)
+target_link_libraries(jpdf-desk-qt-platform INTERFACE ${JPDF_DESK_PLATFORM_PLUGINS})
+target_sources(jpdf-desk-qt-platform INTERFACE ${JPDF_DESK_PLATFORM_PLUGIN_OBJECTS})
+target_link_libraries(jpdf-desk PRIVATE jpdf-desk-qt-platform)
+qt6_finalize_target(jpdf-desk)
 
 install(
-    TARGETS pdf-filler
+    TARGETS jpdf-desk
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT Runtime
     BUNDLE DESTINATION . COMPONENT Runtime
 )
 
 if(UNIX AND NOT APPLE)
-    install(FILES "${PROJECT_SOURCE_DIR}/packaging/pdf-filler.desktop"
+    install(FILES "${PROJECT_SOURCE_DIR}/packaging/jpdf-desk.desktop"
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications COMPONENT Runtime)
-    install(FILES "${PDF_FILLER_LOGO}"
+    install(FILES "${JPDF_DESK_LOGO}"
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/256x256/apps
-        RENAME pdf-filler.png COMPONENT Runtime)
+        RENAME jpdf-desk.png COMPONENT Runtime)
 endif()
