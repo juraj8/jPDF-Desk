@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   image:
+    name: Resolve build container
     runs-on: ubuntu-latest
     outputs:
       name: ${{ steps.image.outputs.name }}
@@ -24,6 +25,7 @@ jobs:
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/ci-build:debian13" >> "$GITHUB_OUTPUT"
 
   linux:
+    name: ${{ matrix.name }}
     needs: image
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -33,19 +35,25 @@ jobs:
       fail-fast: false
       max-parallel: 3
       matrix:
-        preset:
-          - release-linux
-          - release-windows
-          - release-linux-static
-          - release-linux-arm64
-          - release-windows-static
+        include:
+          - preset: release-linux
+            name: Linux x64 packages
+          - preset: release-windows
+            name: Windows x64 installer
+          - preset: release-linux-static
+            name: Linux x64 standalone
+          - preset: release-linux-arm64
+            name: Linux ARM64 cross-build
+          - preset: release-windows-static
+            name: Windows x64 standalone
     env:
       BUILD_JOBS: "2"
     defaults:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
       - name: Prepare ARM64 sysroot
         if: matrix.preset == 'release-linux-arm64'
         run: bash script/setup-aarch64-sysroot.sh
@@ -61,9 +69,9 @@ jobs:
             -o /opt/appimage-tools/linuxdeploy-plugin-appimage
           chmod +x /opt/appimage-tools/*
           echo /opt/appimage-tools >> "$GITHUB_PATH"
-      - name: Build ${{ matrix.preset }}
+      - name: Build, test, and package
         run: bash script/ci-build.sh "${{ matrix.preset }}"
-      - name: Upload artifacts
+      - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.preset }}
@@ -82,20 +90,28 @@ jobs:
           retention-days: 14
 
   macos:
-    runs-on: macos-14
+    name: macOS Apple Silicon bundle
+    # Qt requires macOS SDK 15+ and Xcode 16+.
+    runs-on: macos-15
     timeout-minutes: 120
     env:
       BUILD_JOBS: "3"
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Check Apple toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
       - name: Install build dependencies
         run: |
           test "$(uname -m)" = arm64
           brew install cmake ninja make pkg-config openssl@3
           echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
-      - name: Build macOS ARM64
+      - name: Build, test, and package macOS app
         run: bash script/ci-build.sh release-mac-arm64
-      - uses: actions/upload-artifact@v4
+      - name: Upload macOS app bundle
+        uses: actions/upload-artifact@v4
         with:
           name: release-mac-arm64
           path: dist/release-mac-arm64/
@@ -113,10 +129,12 @@ jobs:
           retention-days: 14
 
   snap:
+    name: Linux x64 Snap package
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
       - name: Initialize source submodules
         run: |
           git submodule sync
@@ -130,12 +148,13 @@ jobs:
         uses: snapcore/action-build@v1
         with:
           snapcraft-channel: latest/stable
-      - name: Collect Snap
+      - name: Collect Snap and checksums
         run: |
           mkdir -p dist/release-linux-snap
           cp "${{ steps.snap.outputs.snap }}" dist/release-linux-snap/
           (cd dist/release-linux-snap && sha256sum *.snap > SHA256SUMS)
-      - uses: actions/upload-artifact@v4
+      - name: Upload Snap package
+        uses: actions/upload-artifact@v4
         with:
           name: release-linux-snap
           path: dist/release-linux-snap/
@@ -184,7 +203,7 @@ jobs:
             (cd "$directory" && zip -r "$output/jpdf-desk-$RELEASE_TAG-$preset.zip" .)
           done
           (cd release-assets && sha256sum *.zip > SHA256SUMS)
-      - name: Create draft, upload, and publish
+      - name: Publish GitHub Release assets
         shell: bash
         run: |
           set -euo pipefail

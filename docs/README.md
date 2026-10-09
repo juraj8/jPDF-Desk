@@ -17,7 +17,8 @@
 ## Website
 
 In **Settings → Pages**, select **Deploy from a branch → release → /docs**.
-The site uses `docs/index.html`, `docs/style.css`, and `docs/assets/`; no build step is needed.
+The site uses `docs/index.html`, `docs/style.css`, and `docs/assets/`.
+Keep `docs/.nojekyll` to publish static files without Jekyll processing.
 
 Preview from the repository root:
 
