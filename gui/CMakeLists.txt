@@ -7,12 +7,22 @@ add_library(jpdf-desk-gui-lib STATIC
     ui/about_dialog.h
     ui/dialog_helpers.cpp
     ui/dialog_helpers.h
+    ui/fileopen_dialog.cpp
+    ui/fileopen_dialog.h
+    ui/form_dialog.cpp
+    ui/form_dialog.h
     ui/metadata_dialog.cpp
     ui/metadata_dialog.h
     ui/password_dialog.cpp
     ui/password_dialog.h
     main_window.cpp
     main_window.h
+    document_view.cpp
+    document_view.h
+    document_loading.cpp
+    document_loading.h
+    pdf_task.cpp
+    pdf_task.h
     signature_store.cpp
     signature_store.h
     ui/signature_manager.cpp
@@ -33,6 +43,8 @@ add_library(jpdf-desk-gui-lib STATIC
     ui/search_controls.h
     ui/print_dialog.cpp
     ui/print_dialog.h
+    ui/print_preview.cpp
+    ui/print_preview.h
     ui/theme.h
     ui/theme.cpp
     ui/sidebar.cpp
@@ -48,13 +60,15 @@ add_library(jpdf-desk-gui-lib STATIC
     ui/zoom_controls.cpp
     ui/zoom_controls.h
 )
+qt6_wrap_cpp(JPDF_DESK_GUI_MOC_SOURCES document_view.h TARGET jpdf-desk-gui-lib)
+target_sources(jpdf-desk-gui-lib PRIVATE ${JPDF_DESK_GUI_MOC_SOURCES})
 target_include_directories(jpdf-desk-gui-lib
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 target_link_libraries(jpdf-desk-gui-lib
     PUBLIC jpdf-desk-document jpdf-desk-printing Qt6::Widgets
-    PRIVATE jpdf-desk-mupdf
+    PRIVATE jpdf-desk-image
 )
 
 set(JPDF_DESK_LOGO "${PROJECT_SOURCE_DIR}/branding/jpdf-desk-logo-256.png")
@@ -67,6 +81,7 @@ qt6_add_resources(jpdf-desk-gui-lib jpdf_desk_branding
 set(JPDF_DESK_UI_ICONS
     ui/icons/up-light.xpm ui/icons/down-light.xpm
     ui/icons/up-dark.xpm ui/icons/down-dark.xpm
+    ui/icons/close-red.xpm
 )
 foreach(icon IN LISTS JPDF_DESK_UI_ICONS)
     get_filename_component(icon_name "${icon}" NAME)
@@ -126,7 +141,7 @@ if(UNIX AND NOT APPLE
 )
     message(FATAL_ERROR
         "Qt was built without an XCB or Wayland desktop platform plugin. "
-        "Install the Linux desktop development packages documented in docs/guide.md, "
+        "Install the Linux desktop development packages documented in docs/development/build.md, "
         "delete the build directory, and configure again."
     )
 endif()

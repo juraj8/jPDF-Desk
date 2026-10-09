@@ -7,18 +7,11 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QTimer>
-#include <QMessageBox>
-#include <exception>
 
 int main(int argc, char *argv[])
 {
     QApplication application(argc, argv);
-    try {
-        initializeApplicationIdentity();
-    } catch (const std::exception &e) {
-        QMessageBox::warning(nullptr, QStringLiteral("jPDF Desk — Data migration"),
-                             QString::fromUtf8(e.what()));
-    }
+    initializeApplicationIdentity();
     // Fusion consistently honors the palette on every supported desktop.
     QApplication::setStyle(QStringLiteral("Fusion"));
 

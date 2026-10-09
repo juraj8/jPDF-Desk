@@ -5,6 +5,19 @@
 #include <QImage>
 #include <QMap>
 #include <stdexcept>
+#include <memory>
+#include <functional>
+
+class PdfOperationCancelled : public std::runtime_error {
+public:
+    PdfOperationCancelled() : std::runtime_error("PDF operation cancelled.") {}
+};
+
+// Sensitive, in-memory credentials for an independent reader. Never persist or log.
+struct PdfSource {
+    QString path;
+    QString password;
+};
 
 // Opening failed because the document requires a valid password.
 class PdfPasswordRequired : public std::runtime_error {
@@ -25,6 +38,14 @@ public:
 
     // A failed open (including authentication) leaves the current document intact.
     void open(const QString &path, const QString &password = {});
+    PdfSource savedSource() const { return {path_, password_}; }
+    // Transfer document state after exclusive worker use; retain each instance's providers.
+    void swapContent(PdfDocument &other) noexcept;
+    // An independent, authenticated copy including unsaved metadata and edits.
+    // Creating a snapshot neither signs nor changes the source document.
+    std::unique_ptr<PdfDocument> snapshot(const DocumentAnnotations &annotations,
+                                        const QByteArray &signatureTemplate = {}) const;
+    // Saves publish atomically and adopt the output only after success.
     // Identity interpretation belongs to the injected provider, not the PDF library.
     void saveSnapshot(const QString &path, const DocumentAnnotations &annotations,
               const QByteArray &signatureTemplate = {}, const SigningIdentity &identity = {});
@@ -40,8 +61,14 @@ public:
     // Applies to the next saved copy; an empty password removes encryption.
     void setPassword(const QString &password);
     QVector<OutlineEntry> outline() const;
+    QVector<PdfFormField> formFields(int page) const;
+    // Atomically apply supported native field values to the in-memory document.
+    // Saved/printed snapshots include them; no JavaScript actions are executed.
+    void setFormValues(const QMap<int, QString> &values);
     // Case-insensitive selectable-text search. No OCR or unsaved annotation edits.
-    QVector<TextSearchMatch> search(const QString &query) const;
+    // Progress runs between pages, outside MuPDF boundaries. Return false to cancel.
+    QVector<TextSearchMatch> search(const QString &query,
+        const std::function<bool(int completed, int total)> &progress = {}) const;
     QSizeF pageSize(int pageNumber) const;
     QImage render(int pageNumber, qreal resolution = 1.0) const;
     QImage renderForPrint(int pageNumber, int dpi = 300) const;
@@ -58,6 +85,9 @@ public:
     QString path() const { return path_; }
 
 private:
+    void applyAnnotations(const DocumentAnnotations &annotations, const QByteArray &signatureTemplate);
+    // Keeps adopted exports independent of temporary files (also on Windows).
+    void openBuffered(const QString &path, const QString &password);
     fz_context *ctx_ = nullptr;
     pdf_document *doc_ = nullptr;
     QString path_;

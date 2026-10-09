@@ -1,4 +1,6 @@
 #include "ui/print_dialog.h"
+#include "ui/print_preview.h"
+#include "jpdf_desk/printing/print_settings.h"
 
 #include <QCheckBox>
 #include <QTabBar>
@@ -9,58 +11,20 @@
 #include <QComboBox>
 #include <QTreeWidget>
 #include <QHeaderView>
-#include <QDir>
-#include <QFileInfo>
 #include <QFormLayout>
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPageRanges>
 #include <QPrinter>
 #include <QPrinterInfo>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QDoubleSpinBox>
-#include <QPrintPreviewWidget>
 #include <QPrintEngine>
-#include <QGraphicsView>
-#include <QWheelEvent>
-#include <QSignalBlocker>
-#include <memory>
-#include <exception>
 #include <QScrollArea>
 #include <algorithm>
 #include <QVBoxLayout>
-
-namespace {
-class PreviewZoomFilter : public QObject {
-public:
-    PreviewZoomFilter(QPrintPreviewWidget *preview, QSpinBox *zoom)
-        : QObject(preview), preview_(preview), zoom_(zoom) {}
-
-protected:
-    bool eventFilter(QObject *watched, QEvent *event) override
-    {
-        if (event->type() == QEvent::Wheel) {
-            auto *wheel = static_cast<QWheelEvent *>(event);
-            if (wheel->modifiers().testFlag(Qt::ControlModifier) && wheel->angleDelta().y() != 0) {
-                const qreal multiplier = wheel->angleDelta().y() > 0 ? 1.2 : 1 / 1.2;
-                preview_->setZoomFactor(qBound(0.01, preview_->zoomFactor() * multiplier, 10.0));
-                const QSignalBlocker blocker(zoom_);
-                zoom_->setValue(qRound(preview_->zoomFactor() * 100));
-                wheel->accept();
-                return true;
-            }
-        }
-        return QObject::eventFilter(watched, event);
-    }
-
-private:
-    QPrintPreviewWidget *preview_;
-    QSpinBox *zoom_;
-};
-}
 
 PrintDialog::PrintDialog(QPrinter &printer, int pageCount, int currentPage, QWidget *parent,
                          PreviewRenderer renderPreview)
@@ -353,165 +317,63 @@ PrintDialog::PrintDialog(QPrinter &printer, int pageCount, int currentPage, QWid
     rangeLabel->hide();
     updateDestination();
 
-    const auto configure = [=](QPrinter &targetPrinter, bool forPreview) {
-        const auto fail = [error](const QString &message) {
-            error->setText(message);
-            error->show();
-        };
-        const auto selection = static_cast<QPrinter::PrintRange>(range->checkedId());
-        QPageRanges selected;
-        if (selection == QPrinter::PageRange) {
-            selected = QPageRanges::fromString(pageRange->text());
-            if (selected.isEmpty() || selected.lastPage() > pageCount) {
-                fail(tr("Enter valid page numbers between 1 and %1 (for example: 1-3, 5).").arg(pageCount));
-                return false;
-            }
-        }
-        PrintOptions options;
-        options.pagesPerSheet = perSheet->currentData().toInt();
-        options.rightToLeft = ordering->currentData().toBool();
-        options.subset = static_cast<PrintOptions::PageSubset>(subset->currentData().toInt());
-        options.scaling = static_cast<PrintOptions::Scaling>(scaling->currentData().toInt());
-        options.scalePercent = scale->value();
-        QPrinter selectionProbe;
-        selectionProbe.setPageRanges(selected);
-        selectionProbe.setPrintRange(selection);
-        if (selectedPrintPages(selectionProbe, pageCount, currentPage, options).isEmpty()) {
-            fail(tr("No pages match the selected range and odd/even filter."));
-            return false;
-        }
-        const bool pdf = destinationName().isEmpty();
-        const QFileInfo target(output->text().trimmed());
-        if (!forPreview && pdf && (output->text().trimmed().isEmpty() || !target.isAbsolute()
-                    || target.suffix().compare(QStringLiteral("pdf"), Qt::CaseInsensitive) != 0
-                    || target.exists() || !target.dir().exists())) {
-            fail(tr("Enter a full path to a new .pdf file in an existing folder. Existing files will not be overwritten."));
-            return false;
-        }
-        if (!forPreview) {
-            if (pdf) {
-                targetPrinter.setOutputFormat(QPrinter::PdfFormat);
-                targetPrinter.setOutputFileName(target.absoluteFilePath());
-            } else {
-                targetPrinter.setOutputFileName(QString());
-                targetPrinter.setPrinterName(destinationName());
-                targetPrinter.setOutputFormat(QPrinter::NativeFormat);
-            }
-        }
-        // Resolution must be configured before starting the painter.
-        if (resolution->currentData().toInt() > 0)
-            targetPrinter.setResolution(resolution->currentData().toInt());
-        targetPrinter.setDocName(jobName->text());
-        targetPrinter.setPaperSource(static_cast<QPrinter::PaperSource>(source->currentData().toInt()));
-        targetPrinter.setColorMode(static_cast<QPrinter::ColorMode>(colour->currentData().toInt()));
-        targetPrinter.setPageSize(paper->currentData().value<QPageSize>());
-        targetPrinter.setPageOrientation(static_cast<QPageLayout::Orientation>(orientation->currentData().toInt()));
-        targetPrinter.setDuplex(static_cast<QPrinter::DuplexMode>(duplex->currentData().toInt()));
-        targetPrinter.setCopyCount(forPreview ? 1 : copies->value());
-        targetPrinter.setCollateCopies(collate->isChecked());
-        targetPrinter.setPageOrder(reverse->isChecked() ? QPrinter::LastPageFirst : QPrinter::FirstPageFirst);
-        targetPrinter.setPageRanges(selected);
-        targetPrinter.setPrintRange(selection);
-        options_ = options;
-        error->hide();
-        return true;
+    const auto showError = [error](const QString &message) {
+        error->setText(message);
+        error->setVisible(!message.isEmpty());
     };
-    connect(submit, &QPushButton::clicked, this, [this, configure, &printer] {
-        if (configure(printer, false)) accept();
+    const auto readSettings = [=] {
+        PrintSettings settings;
+        settings.printerName = destinationName();
+        settings.outputPath = output->text();
+        settings.range = static_cast<QPrinter::PrintRange>(range->checkedId());
+        settings.pageRange = pageRange->text();
+        settings.options.pagesPerSheet = perSheet->currentData().toInt();
+        settings.options.rightToLeft = ordering->currentData().toBool();
+        settings.options.subset = static_cast<PrintOptions::PageSubset>(subset->currentData().toInt());
+        settings.options.scaling = static_cast<PrintOptions::Scaling>(scaling->currentData().toInt());
+        settings.options.scalePercent = scale->value();
+        settings.resolution = resolution->currentData().toInt();
+        settings.jobName = jobName->text();
+        settings.paperSource = static_cast<QPrinter::PaperSource>(source->currentData().toInt());
+        settings.colorMode = static_cast<QPrinter::ColorMode>(colour->currentData().toInt());
+        settings.pageSize = paper->currentData().value<QPageSize>();
+        settings.orientation = static_cast<QPageLayout::Orientation>(orientation->currentData().toInt());
+        settings.duplex = static_cast<QPrinter::DuplexMode>(duplex->currentData().toInt());
+        settings.copies = copies->value();
+        settings.collate = collate->isChecked();
+        settings.reverse = reverse->isChecked();
+        return settings;
+    };
+    connect(submit, &QPushButton::clicked, this, [=, &printer] {
+        const auto settings = readSettings();
+        const QString message = settings.apply(printer, pageCount, currentPage, PrintSettings::Purpose::Print);
+        showError(message);
+        if (message.isEmpty()) {
+            options_ = settings.options;
+            accept();
+        }
     });
 
-    // Preview uses an independent printer and the same snapshot renderer as printing.
-    auto previewPrinter = std::make_shared<QPrinter>(QPrinter::HighResolution);
-    previewPrinter->setOutputFormat(QPrinter::PdfFormat);
-    auto *previewView = new QPrintPreviewWidget(previewPrinter.get(), this);
-    previewView->setObjectName(QStringLiteral("printPreview"));
+    auto *previewView = new PrintPreview(renderPreview, showError, this);
     layout->insertWidget(layout->indexOf(views) + 1, previewView, 1);
     previewView->hide();
-    auto *previewTools = new QWidget(this);
-    auto *navigation = new QHBoxLayout(previewTools);
-    navigation->setContentsMargins(0, 0, 0, 0);
-    auto *previewPage = new QSpinBox(previewTools);
-    previewPage->setPrefix(tr("Page "));
-    auto *pageCountLabel = new QLabel(previewTools);
-    auto *zoomOut = new QPushButton(tr("−"), previewTools);
-    zoomOut->setToolTip(tr("Zoom out"));
-    zoomOut->setAccessibleName(tr("Zoom out"));
-    auto *zoomIn = new QPushButton(tr("+"), previewTools);
-    zoomIn->setToolTip(tr("Zoom in"));
-    zoomIn->setAccessibleName(tr("Zoom in"));
-    auto *zoom = new QSpinBox(previewTools);
-    zoom->setObjectName(QStringLiteral("printPreviewZoom"));
-    zoom->setAccessibleName(tr("Preview zoom percentage"));
-    zoom->setRange(1, 1000);
-    zoom->setSuffix(QStringLiteral(" %"));
-    zoom->setToolTip(tr("Zoom the preview, or use Ctrl + mouse wheel. This does not change print scaling."));
-    if (auto *graphics = previewView->findChild<QGraphicsView *>())
-        graphics->viewport()->installEventFilter(new PreviewZoomFilter(previewView, zoom));
-    auto *fitPage = new QPushButton(tr("Fit page"), previewTools);
-    fitPage->setObjectName(QStringLiteral("printPreviewFitPage"));
-    auto *fitWidth = new QPushButton(tr("Fit width"), previewTools);
-    fitWidth->setObjectName(QStringLiteral("printPreviewFitWidth"));
-    navigation->addWidget(previewPage);
-    navigation->addWidget(pageCountLabel);
-    navigation->addStretch();
-    navigation->addWidget(zoomOut);
-    navigation->addWidget(zoom);
-    navigation->addWidget(zoomIn);
-    navigation->addWidget(fitPage);
-    navigation->addWidget(fitWidth);
-    layout->insertWidget(layout->indexOf(previewView) + 1, previewTools);
-    previewTools->hide();
-    connect(previewPage, &QSpinBox::valueChanged, previewView, &QPrintPreviewWidget::setCurrentPage);
-    const auto setZoom = [previewView, zoom](qreal factor) {
-        previewView->setZoomFactor(qBound(0.01, factor, 10.0));
-        const QSignalBlocker blocker(zoom);
-        zoom->setValue(qRound(previewView->zoomFactor() * 100));
-    };
-    connect(zoomOut, &QPushButton::clicked, previewView, [previewView, setZoom] {
-        setZoom(previewView->zoomFactor() / 1.2);
-    });
-    connect(zoomIn, &QPushButton::clicked, previewView, [previewView, setZoom] {
-        setZoom(previewView->zoomFactor() * 1.2);
-    });
-    connect(zoom, &QSpinBox::valueChanged, previewView, [previewView](int percent) {
-        previewView->setZoomFactor(percent / 100.0);
-    });
-    connect(fitPage, &QPushButton::clicked, previewView, &QPrintPreviewWidget::fitInView);
-    connect(fitWidth, &QPushButton::clicked, previewView, &QPrintPreviewWidget::fitToWidth);
-    connect(previewView, &QPrintPreviewWidget::previewChanged, this, [=] {
-        previewPage->setRange(1, qMax(1, previewView->pageCount()));
-        previewPage->setValue(previewView->currentPage());
-        pageCountLabel->setText(tr("of %1").arg(previewView->pageCount()));
-        const QSignalBlocker blocker(zoom);
-        zoom->setValue(qRound(previewView->zoomFactor() * 100));
-    });
-    connect(previewView, &QPrintPreviewWidget::paintRequested, this,
-            [this, error, renderPreview, previewPrinter](QPrinter *target) {
-        if (!renderPreview) return;
-        try {
-            renderPreview(*target, options_);
-        } catch (const std::exception &e) {
-            error->setText(tr("Cannot preview PDF: %1").arg(QString::fromUtf8(e.what())));
-            error->show();
-        }
-    });
-    connect(preview, &QPushButton::clicked, this,
-            [=] {
+    connect(preview, &QPushButton::clicked, this, [=] {
         if (!previewView->isHidden()) {
             previewView->hide();
-            previewTools->hide();
             switches->show();
             views->show();
             preview->setText(tr("Preview"));
             return;
         }
-        if (!configure(*previewPrinter, true)) return;
+        const auto settings = readSettings();
+        const QString message = previewView->configure(settings, pageCount, currentPage);
+        showError(message);
+        if (!message.isEmpty()) return;
+        options_ = settings.options;
         switches->hide();
         views->hide();
-        previewView->updatePreview();
+        previewView->refresh();
         previewView->show();
-        previewTools->show();
         preview->setText(tr("Back to settings"));
-        previewView->fitInView();
     });
 }

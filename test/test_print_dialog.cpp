@@ -113,7 +113,8 @@ int main(int argc, char **argv)
     auto *previewButton = previewDialog.findChild<QPushButton *>(QStringLiteral("printPreviewButton"));
     previewButton->click();
     auto *previewView = previewDialog.findChild<QPrintPreviewWidget *>(QStringLiteral("printPreview"));
-    if (!previewView || previewView->isHidden() || renderCount != 1 || previewView->pageCount() != 1
+    auto *previewPanel = previewDialog.findChild<QWidget *>(QStringLiteral("printPreviewPanel"));
+    if (!previewView || !previewPanel || previewPanel->isHidden() || renderCount != 1 || previewView->pageCount() != 1
         || !untouched.outputFileName().isEmpty() || previewDialog.result() == QDialog::Accepted) return 20;
     auto *zoom = previewDialog.findChild<QSpinBox *>(QStringLiteral("printPreviewZoom"));
     auto *graphics = previewView->findChild<QGraphicsView *>();
@@ -131,6 +132,6 @@ int main(int argc, char **argv)
     previewDialog.findChild<QPushButton *>(QStringLiteral("printPreviewFitWidth"))->click();
     if (previewView->zoomMode() != QPrintPreviewWidget::FitToWidth) return 27;
     previewButton->click();
-    if (!previewView->isHidden() || previewButton->text() != QStringLiteral("Preview")) return 21;
+    if (!previewPanel->isHidden() || previewButton->text() != QStringLiteral("Preview")) return 21;
     return 0;
 }

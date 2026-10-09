@@ -4,7 +4,6 @@
 #include <QPageRanges>
 #include <QPainter>
 #include <QPrinter>
-#include <QTemporaryDir>
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -36,13 +35,8 @@ QVector<int> selectedPrintPages(const QPrinter &printer, int pageCount, int curr
 void printDocumentSnapshot(const PdfDocument &document, const DocumentAnnotations &annotations,
                            QPrinter &printer, int currentPage, const PrintOptions &options)
 {
-    QTemporaryDir staging;
-    if (!staging.isValid()) throw std::runtime_error("Cannot create temporary print directory.");
-    // The snapshot intentionally has no signing provider: printing never signs.
-    PdfDocument snapshot;
-    snapshot.open(document.path());
-    snapshot.saveSnapshot(staging.filePath("print.pdf"), annotations);
-    printDocument(snapshot, printer, currentPage, options);
+    const auto snapshot = document.snapshot(annotations);
+    printDocument(*snapshot, printer, currentPage, options);
 }
 
 void printDocument(const PdfDocument &document, QPrinter &printer, int currentPage,

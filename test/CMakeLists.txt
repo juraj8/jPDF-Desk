@@ -19,20 +19,35 @@ if(TARGET jpdf-desk-openssl)
 endif()
 jpdf_desk_add_test(signature-services test_signature_services.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
-jpdf_desk_add_test(legacy-document test_legacy_document.cpp
+jpdf_desk_add_test(document-annotations test_document_annotations.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
+jpdf_desk_add_test(mupdf-errors test_mupdf_errors.cpp
+    LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
+jpdf_desk_add_test(image-loading test_image_loading.cpp
+    LIBRARIES jpdf-desk-image jpdf-desk-document-types jpdf-desk-mupdf)
+jpdf_desk_add_test(signature-image test_signature_image.cpp WIDGETS)
 jpdf_desk_add_test(app-identity test_app_identity.cpp WIDGETS)
 # Printing tests exercise only the printing library, not the application window.
 jpdf_desk_add_test(printing test_printing.cpp
     LIBRARIES jpdf-desk-printing jpdf-desk-qt-platform jpdf-desk-mupdf)
 set_tests_properties(jpdf-desk.printing PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+jpdf_desk_add_test(print-settings test_print_settings.cpp
+    LIBRARIES jpdf-desk-printing jpdf-desk-qt-platform)
+set_tests_properties(jpdf-desk.print-settings PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+jpdf_desk_add_test(print-preview test_print_preview.cpp WIDGETS)
 jpdf_desk_add_test(print-dialog test_print_dialog.cpp WIDGETS)
 jpdf_desk_add_test(document-dialogs test_document_dialogs.cpp WIDGETS)
+jpdf_desk_add_test(forms test_forms.cpp WIDGETS)
+jpdf_desk_add_test(pdf-tasks test_pdf_tasks.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(outline test_outline.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(search test_search.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(page-controls test_page_controls.cpp WIDGETS)
 jpdf_desk_add_test(password test_password.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
+jpdf_desk_add_test(document-view test_document_view.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(main-window test_main_window.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
+jpdf_desk_add_test(fileopen test_fileopen.cpp WIDGETS)
+jpdf_desk_add_test(pdf-file-diagnostics test_pdf_file_diagnostics.cpp
+    LIBRARIES jpdf-desk-document)
 jpdf_desk_add_test(signature-store test_signature_store.cpp WIDGETS)
 jpdf_desk_add_test(theme test_theme.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 if(TARGET jpdf-desk-openssl)

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25.0)
 
 project(jpdf-desk
-    VERSION 1.0.0
+    VERSION 1.1.0
     DESCRIPTION "A desktop PDF toolkit for viewing, filling, signing, verification, metadata and password management"
     LANGUAGES C CXX
 )
@@ -10,6 +10,8 @@ set(JPDF_DESK_DISPLAY_NAME "jPDF Desk")
 set(JPDF_DESK_AUTHOR "Juraj Giertl" CACHE STRING "Project author shown in the About dialog")
 set(JPDF_DESK_AUTHOR_EMAIL "j74a8g@gmail.com" CACHE STRING "Author email used in package contact metadata")
 set(JPDF_DESK_PROJECT_URL "${PROJECT_HOMEPAGE_URL}" CACHE STRING "Project homepage shown in the About dialog")
+set(JPDF_DESK_ISSUES_URL "https://github.com/juraj8/jPDF-Desk/issues" CACHE STRING "GitHub issue tracker shown in the About dialog")
+set(JPDF_DESK_DONATE_URL "https://github.com/sponsors/juraj8" CACHE STRING "Donation page or contact URL")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_STANDARD 17)

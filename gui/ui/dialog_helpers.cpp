@@ -2,6 +2,8 @@
 
 #include <QDialog>
 #include <QLabel>
+#include <QIcon>
+#include <QPushButton>
 
 QLabel *dialogHint(const QString &text, QWidget *parent)
 {
@@ -14,6 +16,8 @@ QLabel *dialogHint(const QString &text, QWidget *parent)
 QDialogButtonBox *dialogButtons(QDialog *dialog, QDialogButtonBox::StandardButtons buttons)
 {
     auto *box = new QDialogButtonBox(buttons, dialog);
+    if (auto *close = box->button(QDialogButtonBox::Close))
+        close->setIcon(QIcon(QStringLiteral(":/ui/close-red.xpm")));
     QObject::connect(box, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
     return box;
 }

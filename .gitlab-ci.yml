@@ -1,7 +1,6 @@
 # GitLab CI for jPDF Desk.
 # Requires Linux x86_64 Docker runners. QtBase and MuPDF are built from
 # the pinned source submodules.
-# AppImage is not built here: it requires externally supplied linuxdeploy tools.
 stages:
   - test
   - build
@@ -44,7 +43,7 @@ variables:
       apt-get update
       apt-get install -y --no-install-recommends \
         ca-certificates git build-essential cmake ninja-build perl python3 pkg-config file \
-        libssl-dev openssl libcups2-dev \
+        libssl-dev libzstd-dev openssl libcups2-dev \
         libfontconfig1-dev libfreetype-dev libgl1-mesa-dev libx11-dev \
         libx11-xcb-dev libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
         libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
@@ -68,56 +67,47 @@ linux_tests:
   extends: .cmake_job
   stage: test
   script:
-    - cmake --preset debug --fresh
-    - cmake --build --preset debug --parallel "$BUILD_JOBS"
-    - ctest --preset debug --no-tests=error --output-junit test-results.xml
+    - |
+      set -eu
+      apt-get install -y --no-install-recommends curl dpkg-dev rpm
+      mkdir -p /opt/appimage-tools
+      curl --fail --location --retry 3 \
+        https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+        -o /opt/appimage-tools/linuxdeploy
+      curl --fail --location --retry 3 \
+        https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage \
+        -o /opt/appimage-tools/linuxdeploy-plugin-appimage
+      chmod +x /opt/appimage-tools/*
+      export PATH="/opt/appimage-tools:$PATH"
+      # Build/test once, then generate DEB, RPM and AppImage from that build.
+      bash script/ci-build.sh release-linux
+      test "$(dpkg-deb --field .build/release-linux/packages/*.deb Architecture)" = amd64
   artifacts:
     when: always
     expire_in: 1 week
     reports:
-      junit: .build/debug/test-results.xml
+      junit: .build/release-linux/test-results.xml
     paths:
-      - .build/debug/Testing/Temporary/LastTest.log
+      - dist/release-linux/
+      - .build/release-linux/Testing/Temporary/
 
 # Validate distribution builds on branches and MRs as well as on tags.
 linux_packages:
   extends: .cmake_job
   stage: build
-  parallel:
-    matrix:
-      - CMAKE_PRESET: [linux-executable, linux-deb, linux-rpm]
+  variables:
+    CMAKE_PRESET: release-linux-static
   script:
-    - |
-      set -eu
-      case "$CMAKE_PRESET" in
-        linux-deb) apt-get install -y --no-install-recommends dpkg-dev ;;
-        linux-rpm) apt-get install -y --no-install-recommends rpm ;;
-      esac
-      cmake --preset "$CMAKE_PRESET" --fresh
-      cmake --build --preset "$CMAKE_PRESET" --parallel "$BUILD_JOBS"
-      output="dist/$CMAKE_PRESET"
-      mkdir -p "$output"
-      case "$CMAKE_PRESET" in
-        linux-executable)
-          test -s ".build/$CMAKE_PRESET/gui/jpdf-desk"
-          cp ".build/$CMAKE_PRESET/gui/jpdf-desk" "$output/"
-          ;;
-        linux-deb)
-          cpack --preset "$CMAKE_PRESET"
-          test "$(dpkg-deb --field .build/linux-deb/packages/*.deb Architecture)" = amd64
-          cp .build/linux-deb/packages/*.deb "$output/"
-          ;;
-        linux-rpm)
-          cpack --preset "$CMAKE_PRESET"
-          cp .build/linux-rpm/packages/*.rpm "$output/"
-          ;;
-      esac
-      (cd "$output" && sha256sum * > SHA256SUMS)
+    - bash script/ci-build.sh "$CMAKE_PRESET"
   artifacts:
     name: "$CI_PROJECT_NAME-$CMAKE_PRESET-$CI_COMMIT_REF_SLUG"
+    when: always
     expire_in: 1 month
+    reports:
+      junit: .build/$CMAKE_PRESET/test-results.xml
     paths:
       - dist/$CMAKE_PRESET/
+      - .build/$CMAKE_PRESET/Testing/Temporary/
 
 windows_packages:
   extends: .cmake_job
@@ -127,23 +117,47 @@ windows_packages:
       set -eu
       apt-get install -y --no-install-recommends mingw-w64 mingw-w64-tools nsis
       # QT_HOST_PATH in the MinGW presets points to this native build.
-      cmake --preset release --fresh
-      cmake --build --preset release --target jpdf-desk --parallel "$BUILD_JOBS"
+      cmake --preset release-linux --fresh
+      cmake --build --preset release-linux --target jpdf-desk --parallel "$BUILD_JOBS"
       # Windows-target OpenSSL is not available in the Debian image. These
       # packages support editing/printing, but not cryptographic signing.
-      cmake --preset windows-installer --fresh -DJPDF_DESK_WITH_OPENSSL=OFF
-      cmake --build --preset windows-installer --parallel "$BUILD_JOBS"
-      cpack --preset windows-installer
+      cmake --preset release-windows --fresh -DJPDF_DESK_WITH_OPENSSL=OFF -DBUILD_TESTING=ON
+      cmake --build --preset release-windows --parallel "$BUILD_JOBS"
+      # Compile Windows tests; execution requires a Windows runner or emulation.
+      cmake --build .build/release-windows --parallel "$BUILD_JOBS"
+      cpack --preset release-windows-installer
       mkdir -p dist/windows-x86_64
-      test -s .build/windows-installer/gui/jpdf-desk.exe
-      cp .build/windows-installer/gui/jpdf-desk.exe dist/windows-x86_64/
-      cp .build/windows-installer/packages/*.exe dist/windows-x86_64/
+      test -s .build/release-windows/gui/jpdf-desk.exe
+      cp .build/release-windows/gui/jpdf-desk.exe dist/windows-x86_64/
+      cp .build/release-windows/packages/*.exe dist/windows-x86_64/
       (cd dist/windows-x86_64 && sha256sum * > SHA256SUMS)
   artifacts:
     name: "$CI_PROJECT_NAME-windows-x86_64-$CI_COMMIT_REF_SLUG"
     expire_in: 1 month
     paths:
       - dist/windows-x86_64/
+
+# Opt in with BUILD_SNAP=1 on a shell runner with Snapcraft and LXD installed.
+snap_packages:
+  stage: build
+  tags: [snapcraft]
+  rules:
+    - if: '$BUILD_SNAP == "1"'
+  before_script:
+    - git submodule sync
+    - git submodule update --init thirdparty/qtbase thirdparty/mupdf
+    - git -C thirdparty/mupdf submodule sync
+    - git -C thirdparty/mupdf submodule update --init thirdparty/freetype thirdparty/jbig2dec thirdparty/libjpeg thirdparty/lcms2 thirdparty/openjpeg thirdparty/zlib
+  script:
+    - snapcraft --use-lxd
+    - mkdir -p dist/release-linux-snap
+    - cp ./*.snap dist/release-linux-snap/
+    - (cd dist/release-linux-snap && sha256sum *.snap > SHA256SUMS)
+  artifacts:
+    name: "$CI_PROJECT_NAME-snap-$CI_COMMIT_REF_SLUG"
+    expire_in: 1 month
+    paths:
+      - dist/release-linux-snap/
 
 # Keep publication manual until the packages have been exercised on target OSes.
 publish-release:
@@ -152,11 +166,14 @@ publish-release:
   interruptible: false
   needs:
     - job: linux_tests
-      artifacts: false
+      artifacts: true
     - job: linux_packages
       artifacts: true
     - job: windows_packages
       artifacts: true
+    - job: snap_packages
+      artifacts: true
+      optional: true
   rules:
     - if: $CI_COMMIT_TAG
       when: manual
@@ -177,7 +194,7 @@ publish-release:
           | sort -z | xargs -0 sha256sum > SHA256SUMS
       )
       tar -czf "$PACKAGE_FILE" release
-      printf '## jPDF Desk %s\n\nLinux x86_64 executable, DEB and RPM packages, and Windows x86_64 executable and installer. Includes README, license and SHA-256 checksums.\n\nLinux builds require compatible system desktop libraries (built on Debian 13). Windows builds do not include cryptographic signing/verification; editing, signature images and printing remain available.\n' \
+      printf '## jPDF Desk %s\n\nLinux x86_64 executable, DEB, RPM and AppImage packages, and Windows x86_64 executable and installer. Includes README, license and SHA-256 checksums.\n\nLinux builds require compatible system desktop libraries (built on Debian 13). Windows builds do not include cryptographic signing/verification; editing, signature images and printing remain available.\n' \
         "$CI_COMMIT_TAG" > release-notes.md
       # Publish individual packages as well as the complete release archive.
       for directory in dist/*; do

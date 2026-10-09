@@ -1,6 +1,7 @@
 #include "main_window.h"
 #include "ui/about_dialog.h"
 #include "ui/editable_text.h"
+#include "ui/dialog_helpers.h"
 #include "ui/theme.h"
 #include "ui/window_style.h"
 
@@ -78,6 +79,10 @@ int main(int argc, char **argv)
     // Dialogs created after the switch must inherit the current appearance.
     AboutDialog about(window.windowIcon(), &window);
     if (about.palette().color(QPalette::WindowText) != QColor(UiTheme::colors(true).text)) return 10;
+    auto *buttons = about.findChild<QDialogButtonBox *>();
+    if (!buttons || !buttons->button(QDialogButtonBox::Close)) return 20;
+    const auto closeIcon = buttons->button(QDialogButtonBox::Close)->icon().pixmap(16, 16).toImage();
+    if (closeIcon.isNull() || closeIcon.pixelColor(7, 7) != QColor("#e85d67")) return 21;
     MainWindow nextSession;
     if (!nextSession.findChild<QAction *>(QStringLiteral("darkThemeAction"))->isChecked()) return 11;
     // Optional screenshots for manual review; no artifacts are written normally.

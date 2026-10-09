@@ -2,11 +2,8 @@
 
 #include <QString>
 
-class QSettings;
+// Stable per-user asset root, independent of the Qt organization/display name.
+QString applicationDataRoot();
 
-// Select the current Qt identity and migrate settings/assets from older releases.
+// Select the current Qt identity.
 void initializeApplicationIdentity();
-
-// Separate from identity setup so migration can be tested with isolated paths.
-void migrateApplicationData(const QString &legacyRoot, const QString &currentRoot,
-                            QSettings &legacySettings, QSettings &currentSettings);

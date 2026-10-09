@@ -1,4 +1,5 @@
 #include "signature_store.h"
+#include "app_identity.h"
 
 #include <QDir>
 #include <QFile>
@@ -7,7 +8,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
-#include <QStandardPaths>
 #include <QUuid>
 #include <stdexcept>
 
@@ -24,8 +24,7 @@ void writePrivateFile(const QString &path, const QByteArray &data)
 
 SignatureStore::SignatureStore(Kind kind, const QString &root) : kind_(kind)
 {
-    const QString base = root.isEmpty()
-        ? QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) : root;
+    const QString base = root.isEmpty() ? applicationDataRoot() : root;
     directory_ = QDir(base).filePath(kind == Kind::Image ? QStringLiteral("signature-images")
                                                        : QStringLiteral("signing-certificates"));
 }

@@ -15,13 +15,18 @@ AboutDialog::AboutDialog(const QIcon &icon, QWidget *parent) : QDialog(parent)
     setObjectName(QStringLiteral("aboutDialog"));
     setWindowTitle(tr("About jPDF Desk"));
     setWindowIcon(icon);
-    resize(540, 420);
+    resize(666, 400);
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(12);
     auto *heading = new QHBoxLayout;
     auto *logo = new QLabel(this);
     logo->setPixmap(icon.pixmap(64, 64));
     heading->addWidget(logo);
-    auto *title = new QLabel(tr("jPDF Desk"), this);
+    auto *title = new QLabel(QStringLiteral("%1 <small>%2</small>")
+        .arg(QString::fromUtf8(AppInfo::name).toHtmlEscaped(),
+             QString::fromUtf8(AppInfo::version).toHtmlEscaped()), this);
+    title->setTextFormat(Qt::RichText);
     title->setObjectName(QStringLiteral("windowHeading"));
     heading->addWidget(title, 1);
     layout->addLayout(heading);
@@ -32,6 +37,10 @@ AboutDialog::AboutDialog(const QIcon &icon, QWidget *parent) : QDialog(parent)
     description->setWordWrap(true);
     layout->addWidget(description);
     auto *form = new QFormLayout;
+    form->setHorizontalSpacing(16);
+    form->setVerticalSpacing(8);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setRowWrapPolicy(QFormLayout::WrapLongRows);
     layout->addLayout(form);
     const auto addDetail = [this, form](const QString &caption, const QString &value, const QString &name) {
         auto *label = new QLabel(value, this);
@@ -42,9 +51,6 @@ AboutDialog::AboutDialog(const QIcon &icon, QWidget *parent) : QDialog(parent)
         form->addRow(caption, label);
         return label;
     };
-    addDetail(tr("Project:"), QString::fromUtf8(AppInfo::name), QStringLiteral("aboutProject"));
-    addDetail(tr("Version:"), QString::fromUtf8(AppInfo::version), QStringLiteral("aboutVersion"));
-    addDetail(tr("Author:"), QString::fromUtf8(AppInfo::author), QStringLiteral("aboutAuthor"));
     const QString homepage = QString::fromUtf8(AppInfo::homepage);
     const QUrl url(homepage);
     auto *page = addDetail(tr("Project page:"), tr("Not configured"), QStringLiteral("aboutHomepage"));
@@ -56,12 +62,32 @@ AboutDialog::AboutDialog(const QIcon &icon, QWidget *parent) : QDialog(parent)
         page->setTextInteractionFlags(Qt::TextBrowserInteraction);
         page->setOpenExternalLinks(true);
     }
+    const auto addLink = [&addDetail](const QString &caption, const QString &target,
+                                      const QString &text, const QString &name) {
+        auto *label = addDetail(caption, tr("Not configured"), name);
+        const QUrl link(target);
+        if (!link.isValid() || link.isEmpty()) return;
+        if (link.scheme() != QStringLiteral("https") && link.scheme() != QStringLiteral("http")
+            && link.scheme() != QStringLiteral("mailto")) return;
+        label->setTextFormat(Qt::RichText);
+        label->setText(QStringLiteral("<a href=\"%1\">%2</a>")
+            .arg(link.toString(QUrl::FullyEncoded).toHtmlEscaped(), text.toHtmlEscaped()));
+        label->setTextInteractionFlags(Qt::TextBrowserInteraction);
+        label->setOpenExternalLinks(true);
+    };
+    addDetail(tr("Author:"), QStringLiteral("%1 <%2>")
+        .arg(QString::fromUtf8(AppInfo::author), QString::fromUtf8(AppInfo::authorEmail)),
+        QStringLiteral("aboutAuthor"));
+    addLink(tr("Issues:"), QString::fromUtf8(AppInfo::issues), tr("Report an issue on GitHub"),
+            QStringLiteral("aboutIssues"));
+    const QString donationUrl = QString::fromUtf8(AppInfo::donate);
+    const QString donationText = donationUrl == QStringLiteral("https://github.com/sponsors/juraj8")
+        ? tr("Sponsor on GitHub")
+        : (QUrl(donationUrl).scheme() == QStringLiteral("mailto")
+            ? tr("Contact the author about donating") : tr("Donate"));
+    addLink(tr("Support development:"), donationUrl, donationText,
+            QStringLiteral("aboutDonate"));
     addDetail(tr("License:"), tr("MIT (application code)"), QStringLiteral("aboutLicense"));
-    addDetail(tr("Platform:"), QString::fromUtf8(AppInfo::platform), QStringLiteral("aboutPlatform"));
-    addDetail(tr("Qt version:"), QString::fromLatin1(qVersion()), QStringLiteral("aboutQtVersion"));
-    auto *details = new QLabel(tr("View, fill, annotate, print, sign and verify PDFs; edit metadata and manage password protection. Built with Qt and MuPDF; third-party components have their own licenses."), this);
-    details->setWordWrap(true);
-    layout->addWidget(details);
     auto *licenseNotice = new QLabel(tr("Original jPDF Desk source code is licensed under MIT. Third-party dependencies retain their respective licenses. Builds incorporating open-source MuPDF are subject to AGPLv3-or-later requirements."), this);
     licenseNotice->setObjectName(QStringLiteral("aboutLicenseNotice"));
     licenseNotice->setWordWrap(true);
@@ -70,4 +96,6 @@ AboutDialog::AboutDialog(const QIcon &icon, QWidget *parent) : QDialog(parent)
     layout->addStretch();
     auto *buttons = dialogButtons(this, QDialogButtonBox::Close);
     layout->addWidget(buttons);
+    // Account for wrapped text rather than relying only on the initial height.
+    resize(width(), qMax(height(), layout->totalHeightForWidth(width())));
 }

@@ -29,6 +29,7 @@ public:
     QPushButton *printButton() const { return print_; }
     QPushButton *metadataButton() const { return metadata_; }
     QPushButton *passwordButton() const { return password_; }
+    QPushButton *formButton() const { return form_; }
     void setDocumentState(int pageCount, bool hasSignature, bool canSign, bool canVerify);
 
 private:
@@ -44,6 +45,7 @@ private:
     QPushButton *print_;
     QPushButton *metadata_;
     QPushButton *password_;
+    QPushButton *form_;
     QPushButton *sign_;
     QPushButton *verifySignatures_;
     QPushButton *manageCertificates_;

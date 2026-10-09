@@ -6,6 +6,9 @@ inline constexpr const char *name = R"info(@JPDF_DESK_DISPLAY_NAME@)info";
 inline constexpr const char *version = R"info(@PROJECT_VERSION@)info";
 inline constexpr const char *description = R"info(@PROJECT_DESCRIPTION@)info";
 inline constexpr const char *author = R"info(@JPDF_DESK_AUTHOR@)info";
+inline constexpr const char *authorEmail = R"info(@JPDF_DESK_AUTHOR_EMAIL@)info";
 inline constexpr const char *homepage = R"info(@JPDF_DESK_PROJECT_URL@)info";
+inline constexpr const char *issues = R"info(@JPDF_DESK_ISSUES_URL@)info";
+inline constexpr const char *donate = R"info(@JPDF_DESK_DONATE_URL@)info";
 inline constexpr const char *platform = R"info(@CMAKE_SYSTEM_NAME@ / @CMAKE_SYSTEM_PROCESSOR@)info";
 }

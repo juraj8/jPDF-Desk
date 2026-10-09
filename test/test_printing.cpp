@@ -155,5 +155,26 @@ int main(int argc, char **argv)
     printDocumentSnapshot(snapshot, {{{0, {}}}, {{1, {}}, {2, {}}}, {{2, {}}}}, printer, 0);
     result.open(printer.outputFileName());
     if (hasInk(result.render(0)) || snapshot.fields(0).isEmpty()) return 14;
+    // Printing an authenticated PDF must retain authentication, including when
+    // a different password is pending for the next saved copy.
+    original.setPassword("print-secret");
+    const QString encrypted = dir.filePath("encrypted.pdf");
+    original.save(encrypted, {});
+    original.setPassword("next-secret");
+    original.setMetadata({{"Title", "Unsaved metadata"}});
+    const auto authenticatedCopy = original.snapshot(annotations);
+    if (authenticatedCopy->metadata().value("Title") != "Unsaved metadata"
+        || authenticatedCopy->fields(0).size() != 1
+        || authenticatedCopy->canDigitallySign()) return 24;
+    printer.setOutputFileName(dir.filePath("encrypted-print.pdf"));
+    try {
+        printDocumentSnapshot(original, annotations, printer, 0);
+    } catch (const std::exception &) { return 22; }
+    result.open(printer.outputFileName());
+    if (!hasInk(result.render(0)) || original.path() != encrypted
+        || !original.fields(0).isEmpty()
+        || original.metadata().value("Title") != "Unsaved metadata") return 23;
+    original.save(dir.filePath("next.pdf"), {});
+    result.open(dir.filePath("next.pdf"), "next-secret");
     return 0;
 }

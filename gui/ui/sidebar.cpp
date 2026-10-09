@@ -94,6 +94,9 @@ Sidebar::Sidebar(const QIcon &icon, QWidget *parent) : QFrame(parent)
     cross_ = tile(QStringLiteral("×"), tr("Cross"), QStringLiteral("crossButton"), 1, 0);
     placeSignature_ = tile(QStringLiteral("✎"), tr("Signature"), QStringLiteral("placeSignatureButton"), 1, 1);
     layout->addLayout(tools);
+    form_ = button(tr("Fill form fields…"), QStringLiteral("formButton"));
+    form_->setToolTip(tr("Edit native text fields, checkboxes and choices on the current page."));
+    layout->addWidget(form_);
     signaturePreview_ = new QLabel(this);
     signaturePreview_->setObjectName(QStringLiteral("sidebarSignaturePreview"));
     signaturePreview_->setAlignment(Qt::AlignCenter);
@@ -152,7 +155,7 @@ void Sidebar::setSignaturePreview(const QByteArray &png)
 void Sidebar::setDocumentState(int pageCount, bool hasSignature, bool canSign, bool canVerify)
 {
     const bool hasDocument = pageCount > 0;
-    for (auto *button : {add_, check_, cross_, save_, print_, metadata_, password_})
+    for (auto *button : {add_, check_, cross_, save_, print_, metadata_, password_, form_})
         button->setEnabled(hasDocument);
     sign_->setEnabled(hasDocument && canSign);
     verifySignatures_->setEnabled(hasDocument && canVerify);

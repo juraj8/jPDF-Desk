@@ -1,0 +1,123 @@
+name: jpdf-desk
+version: '1.0.0'
+summary: View, fill and sign PDF documents
+description: |
+  jPDF Desk is a desktop PDF toolkit for editing, signature images,
+  cryptographic signing and verification, metadata, passwords and printing.
+base: core24
+grade: stable
+confinement: strict
+license: MIT AND AGPL-3.0-or-later
+icon: branding/jpdf-desk-logo-256.png
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+
+layout:
+  /usr/share/fonts:
+    bind: $SNAP/usr/share/fonts
+  /usr/share/fontconfig:
+    bind: $SNAP/usr/share/fontconfig
+
+apps:
+  jpdf-desk:
+    command: usr/bin/jpdf-desk
+    desktop: usr/share/applications/jpdf-desk.desktop
+    environment:
+      QT_QPA_PLATFORM: xcb
+      CUPS_SERVER: /var/cups/cups.sock
+      SSL_CERT_FILE: $SNAP/etc/ssl/certs/ca-certificates.crt
+      FONTCONFIG_PATH: $SNAP/etc/fonts
+      FONTCONFIG_FILE: $SNAP/etc/fonts/fonts.conf
+      LD_LIBRARY_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR:$SNAP/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+    plugs:
+      - desktop
+      - desktop-legacy
+      - x11
+      - opengl
+      - home
+      - removable-media
+      - cups
+
+parts:
+  jpdf-desk:
+    plugin: nil
+    source: .
+    build-packages:
+      - git
+      - build-essential
+      - cmake
+      - ninja-build
+      - file
+      - perl
+      - python3
+      - pkg-config
+      - libssl-dev
+      - libzstd-dev
+      - openssl
+      - libcups2-dev
+      - libfontconfig1-dev
+      - libfreetype-dev
+      - libgl1-mesa-dev
+      - libx11-dev
+      - libx11-xcb-dev
+      - libxcb1-dev
+      - libxcb-cursor-dev
+      - libxcb-glx0-dev
+      - libxcb-icccm4-dev
+      - libxcb-image0-dev
+      - libxcb-keysyms1-dev
+      - libxcb-randr0-dev
+      - libxcb-render-util0-dev
+      - libxcb-shape0-dev
+      - libxcb-shm0-dev
+      - libxcb-sync-dev
+      - libxcb-util-dev
+      - libxcb-xfixes0-dev
+      - libxcb-xkb-dev
+      - libxext-dev
+      - libxfixes-dev
+      - libxi-dev
+      - libxkbcommon-dev
+      - libxkbcommon-x11-dev
+      - libxrender-dev
+    stage-packages:
+      - ca-certificates
+      - fonts-dejavu-core
+      - fontconfig-config
+      - libcups2t64
+      - libfontconfig1
+      - libfreetype6
+      - libgl1
+      - libx11-6
+      - libx11-xcb1
+      - libxcb1
+      - libxcb-cursor0
+      - libxcb-glx0
+      - libxcb-icccm4
+      - libxcb-image0
+      - libxcb-keysyms1
+      - libxcb-randr0
+      - libxcb-render-util0
+      - libxcb-shape0
+      - libxcb-shm0
+      - libxcb-sync1
+      - libxcb-util1
+      - libxcb-xfixes0
+      - libxcb-xkb1
+      - libxext6
+      - libxfixes3
+      - libxi6
+      - libxkbcommon0
+      - libxkbcommon-x11-0
+      - libxrender1
+    override-build: |
+      set -eu
+      cd "$CRAFT_PART_SRC"
+      cmake --preset release-linux --fresh -DBUILD_TESTING=ON
+      cmake --build .build/release-linux --parallel "${BUILD_JOBS:-2}"
+      ctest --test-dir .build/release-linux --output-on-failure --no-tests=error
+      cmake --install .build/release-linux --prefix "$CRAFT_PART_INSTALL/usr" --component Runtime
+      install -m 644 "$CRAFT_PROJECT_DIR/packaging/jpdf-desk-snap.desktop" \
+        "$CRAFT_PART_INSTALL/usr/share/applications/jpdf-desk.desktop"

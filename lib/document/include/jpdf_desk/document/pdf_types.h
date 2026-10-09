@@ -37,6 +37,22 @@ struct DocumentAnnotations {
     QMap<int, QVector<Signature>> signatures;
 };
 
+// Native AcroForm fields, separate from application-owned annotations.
+struct PdfFormField {
+    enum class Kind { Text, CheckBox, Choice, Unsupported };
+    int id = 0; // Document-local object number; refresh after opening/saving.
+    QString name;
+    QString value;
+    Kind kind = Kind::Unsupported;
+    bool readOnly = false;
+    bool multiline = false;
+    bool password = false;
+    bool editableChoice = false;
+    int maxLength = 0; // Unicode characters; zero means unspecified.
+    QString onValue;
+    QVector<QPair<QString, QString>> options; // Export value, display label.
+};
+
 struct TextSearchMatch {
     int page = -1; // Zero-based.
     QVector<QRectF> rects; // Page-local scene coordinates; a hit may span lines.

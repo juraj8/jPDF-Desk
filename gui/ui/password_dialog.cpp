@@ -13,6 +13,7 @@ PasswordDialog::PasswordDialog(ApplyPassword apply, QWidget *parent) : QDialog(p
 {
     setObjectName(QStringLiteral("passwordDialog"));
     setWindowTitle(tr("PDF password"));
+    setMinimumWidth(450);
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(dialogHint(tr("Set or replace the password for the next saved copy. The source file is unchanged. "
                                    "Changing encryption may invalidate digital signatures."), this));

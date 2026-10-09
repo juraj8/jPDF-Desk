@@ -6,7 +6,7 @@ RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates git curl \
         build-essential cmake ninja-build file perl python3 pkg-config \
-        libssl-dev openssl libcups2-dev \
+        libssl-dev libzstd-dev openssl libcups2-dev \
         libfontconfig1-dev libfreetype-dev libgl1-mesa-dev libx11-dev \
         libx11-xcb-dev libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
         libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \

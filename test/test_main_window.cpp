@@ -62,13 +62,32 @@ int main(int argc, char **argv)
         auto *dialog = window.findChild<QDialog *>(QStringLiteral("aboutDialog"));
         if (!dialog) return;
         aboutDialogValid = dialog->windowTitle() == QStringLiteral("About jPDF Desk");
-        for (const auto *name : {"aboutProject", "aboutVersion", "aboutAuthor", "aboutDescription",
-                                 "aboutHomepage", "aboutLicense", "aboutLicenseNotice", "aboutPlatform", "aboutQtVersion"}) {
+        for (const auto *name : {"aboutAuthor", "aboutDescription",
+                                 "aboutHomepage", "aboutIssues", "aboutDonate", "aboutLicense", "aboutLicenseNotice"}) {
             auto *label = dialog->findChild<QLabel *>(QString::fromLatin1(name));
             if (!label || label->text().isEmpty()) aboutDialogValid = false;
         }
-        auto *project = dialog->findChild<QLabel *>(QStringLiteral("aboutProject"));
-        if (!project || project->text() != QStringLiteral("jPDF Desk")) aboutDialogValid = false;
+        for (const auto *name : {"aboutIssues", "aboutDonate"}) {
+            auto *label = dialog->findChild<QLabel *>(QString::fromLatin1(name));
+            if (!label || (label->text() != QStringLiteral("Not configured")
+                && (!label->openExternalLinks() || !label->text().contains(QStringLiteral("<a href=\"")))))
+                aboutDialogValid = false;
+        }
+        for (auto *label : dialog->findChildren<QLabel *>()) {
+            if (label->wordWrap() && label->height() < label->heightForWidth(label->width()))
+                aboutDialogValid = false;
+        }
+        auto *title = dialog->findChild<QLabel *>(QStringLiteral("windowHeading"));
+        if (!title || title->textFormat() != Qt::RichText
+            || !title->text().startsWith(QStringLiteral("jPDF Desk <small>"))
+            || !title->text().endsWith(QStringLiteral("</small>"))
+            || title->text().contains(QStringLiteral("<small></small>"))) aboutDialogValid = false;
+        auto *author = dialog->findChild<QLabel *>(QStringLiteral("aboutAuthor"));
+        if (!author || !author->text().contains(QLatin1Char('@'))
+            || !author->text().endsWith(QLatin1Char('>'))) aboutDialogValid = false;
+        for (const auto *name : {"aboutProject", "aboutVersion", "aboutPlatform", "aboutQtVersion"}) {
+            if (dialog->findChild<QLabel *>(QString::fromLatin1(name))) aboutDialogValid = false;
+        }
         dialog->reject();
     });
     about->click();

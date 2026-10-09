@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="jPDF Desk is a desktop app to view, fill, annotate, sign, and secure PDFs. Explore features and builds for Linux, Windows, and macOS.">
+  <meta name="theme-color" content="#172554">
+  <title>jPDF Desk — View, fill, sign, and secure PDFs</title>
+  <link rel="icon" href="assets/jpdf-desk-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#" aria-label="jPDF Desk home">
+        <img src="assets/jpdf-desk-logo.svg" width="40" height="40" alt="">
+        <span>jPDF Desk</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#downloads">Downloads</a>
+        <a href="#resources">Guides</a>
+        <a href="https://github.com/juraj8/jPDF-Desk">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero container" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Your everyday PDF workspace</p>
+        <h1 id="hero-title">Less paperwork.<br><span>More done.</span></h1>
+        <p class="lead">View, fill, sign, and secure PDFs with a desktop app built for everyday documents.</p>
+        <div class="actions">
+          <a class="button button-primary" href="#downloads">Get jPDF Desk <span aria-hidden="true">↓</span></a>
+          <a class="button button-secondary" href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/usage/guide.md">Read the guide</a>
+        </div>
+        <p class="hero-note">Linux · Windows · macOS (Apple Silicon)<br>Open-source project · Desktop workflow</p>
+      </div>
+      <figure class="preview">
+        <!-- Replace this document preview with a real app capture; see screenshots.md. -->
+        <a href="assets/project-approval-demo.pdf" aria-label="Open the sample project approval PDF">
+          <img class="preview-image" src="assets/project-approval-preview.png" width="893" height="1263" alt="Sample project approval PDF with form fields, a review checklist, notes, and a signature area.">
+        </a>
+        <figcaption>Try it with a real document.<br><a href="assets/project-approval-demo.pdf" download>Download the sample PDF</a><br><span>Document preview, not an app screenshot.</span></figcaption>
+      </figure>
+    </section>
+
+    <section class="section section-tinted" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-heading">
+          <p class="eyebrow">One app, everyday essentials</p>
+          <h2 id="features-title">From the first page to the final signature.</h2>
+          <p>Tools for reading, completing, and saving your documents.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="card"><span class="feature-icon" aria-hidden="true">01</span><h3>Read &amp; navigate</h3><p>Zoom in, browse thumbnails and bookmarks, and search selectable text to find what matters.</p></article>
+          <article class="card"><span class="feature-icon" aria-hidden="true">02</span><h3>Fill forms &amp; annotate</h3><p>Edit native form fields, checkboxes, dropdowns, and lists. Place text, checks, or crosses, then move and resize them.</p></article>
+          <article class="card"><span class="feature-icon" aria-hidden="true">03</span><h3>Add your signature</h3><p>Import a handwritten signature image and keep a personal library for reuse. Sign digitally with a .p12 or .pfx certificate.</p></article>
+          <article class="card"><span class="feature-icon" aria-hidden="true">04</span><h3>Manage security</h3><p>Add, remove, or change password protection, edit document metadata, and inspect existing digital signatures.</p></article>
+          <article class="card"><span class="feature-icon" aria-hidden="true">05</span><h3>Save &amp; print</h3><p>Save to a new PDF and edit saved annotations again later. Print all pages, a range, or the current page, including unsaved annotations.</p></article>
+          <article class="card"><span class="feature-icon" aria-hidden="true">06</span><h3>Work your way</h3><p>Choose system, light, or dark appearance without changing the colors of your PDF.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section container" id="downloads" aria-labelledby="downloads-title">
+      <div class="section-heading">
+        <p class="eyebrow">Bring it to your desktop</p>
+        <h2 id="downloads-title">Choose your platform.</h2>
+        <p>Browse published releases for available packages. Not every platform or format may have a prebuilt download.</p>
+      </div>
+      <!-- Link to the release listing rather than guessing versioned asset names. -->
+      <div class="download-grid">
+        <article class="card download-card">
+          <p class="platform-label">LINUX</p><h3>Pick your package</h3>
+          <p>Build options include AppImage, DEB, RPM, Snap, and standalone executables.</p>
+          <a class="button button-primary" href="https://github.com/juraj8/jPDF-Desk/releases">Download for Linux</a>
+          <a class="text-link" href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/usage/installation.md#linux">Linux installation notes <span aria-hidden="true">→</span></a>
+          <p class="small">Compatible system libraries may be required, including for AppImages. Physical printing requires CUPS.</p>
+        </article>
+        <article class="card download-card">
+          <p class="platform-label">WINDOWS</p><h3>Make PDFs feel at home</h3>
+          <p>Build options include an executable and an .exe installer.</p>
+          <a class="button button-primary" href="https://github.com/juraj8/jPDF-Desk/releases">Download for Windows</a>
+          <a class="text-link" href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/usage/installation.md#windows">Windows installation notes <span aria-hidden="true">→</span></a>
+          <p class="small">The installer offers default-app registration without automatically changing your current PDF app.</p>
+        </article>
+        <article class="card download-card">
+          <p class="platform-label">macOS · APPLE SILICON</p><h3>A native desktop bundle</h3>
+          <p>The current build produces an Apple Silicon .app bundle, not a DMG installer.</p>
+          <a class="button button-primary" href="https://github.com/juraj8/jPDF-Desk/releases">Download for macOS</a>
+          <a class="text-link" href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/usage/installation.md#macos">macOS installation notes <span aria-hidden="true">→</span></a>
+          <p class="small">CI bundles are unsigned and not notarized. An Intel Mac build is not currently provided by the build preset.</p>
+        </article>
+      </div>
+      <aside class="notice"><h3>No release for your platform yet?</h3><p>Check <a href="https://github.com/juraj8/jPDF-Desk/actions/workflows/build.yml">GitHub Actions builds</a> for development artifacts, or <a href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/development/build.md">build from source</a>. Artifact downloads require a GitHub login and expire after 14 days; development builds are not stable releases.</p></aside>
+    </section>
+
+    <section class="section section-tinted" id="resources" aria-labelledby="resources-title">
+      <div class="container">
+        <div class="section-heading"><p class="eyebrow">A good place to start</p><h2 id="resources-title">A little guidance goes a long way.</h2></div>
+        <div class="resource-grid">
+          <a class="card resource-card" href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/usage/guide.md"><h3>User guide <span aria-hidden="true">↗</span></h3><p>From opening your first PDF to forms, printing, passwords, and signatures.</p></a>
+          <a class="card resource-card" href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/README.md"><h3>Documentation <span aria-hidden="true">↗</span></h3><p>Installation, build instructions, architecture, libraries, and CI details.</p></a>
+          <a class="card resource-card" href="https://github.com/juraj8/jPDF-Desk/issues"><h3>Help improve the app <span aria-hidden="true">↗</span></h3><p>Report a bug, suggest a feature, or join development on GitHub.</p></a>
+        </div>
+        <div class="security-note">
+          <h3>A note on signatures &amp; trust</h3>
+          <p>A signature image is not a cryptographic digital signature and can be extracted from a PDF. A valid digital integrity check does not necessarily establish trust in the signer. Finish editing before signing: later changes may invalidate signatures.</p>
+          <a class="text-link" href="https://github.com/juraj8/jPDF-Desk/blob/release/docs/usage/guide.md#digital-signatures">Read the signing and certificate security notes <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer container">
+    <div><a class="brand" href="#"><img src="assets/jpdf-desk-logo.svg" width="32" height="32" alt=""><span>jPDF Desk</span></a><p>View, fill, sign, and secure PDFs.</p></div>
+    <div class="footer-details"><p>Project source: <a href="https://github.com/juraj8/jPDF-Desk/blob/release/LICENSE">MIT License</a>.</p><p>Bundled dependencies have separate license obligations, including MuPDF (AGPL or commercial terms). <a href="https://github.com/juraj8/jPDF-Desk#licensing">Licensing details</a>.</p></div>
+  </footer>
+</body>
+</html>
