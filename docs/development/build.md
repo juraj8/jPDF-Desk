@@ -92,6 +92,6 @@ open .build/release-mac-arm64/gui/jpdf-desk.app
 ## Linux AArch64 cross-build
 
 Follow the [ARM64 setup](ci.md#linux-aarch64-cross-builds) for the toolchain,
-sysroot, and Qt host tools.
+multiarch dependencies, and Qt host tools.
 
 Review [dependency licenses](../../README.md#licensing) before distributing binaries.

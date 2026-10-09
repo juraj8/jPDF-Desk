@@ -100,7 +100,7 @@
       "name": "release-linux-arm64",
       "inherits": "_linux",
       "displayName": "Linux AArch64 cross-build",
-      "description": "Requires AArch64 GCC/G++, a populated /opt/sysroot, and native Qt host tools built with release-linux.",
+      "description": "Requires AArch64 GCC/G++, Debian ARM64 multiarch development packages, and native Qt host tools built with release-linux.",
       "binaryDir": "${sourceDir}/.build/release-linux-arm64",
       "toolchainFile": "${sourceDir}/cmake/aarch64-toolchain.cmake",
       "cacheVariables": {

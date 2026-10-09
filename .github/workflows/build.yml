@@ -54,9 +54,6 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-      - name: Prepare ARM64 sysroot
-        if: matrix.preset == 'release-linux-arm64'
-        run: bash script/setup-aarch64-sysroot.sh
       - name: Install AppImage tools
         if: matrix.preset == 'release-linux'
         run: |

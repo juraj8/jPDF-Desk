@@ -41,20 +41,15 @@ the target OS before distribution.
 
 ## Linux AArch64 cross-builds
 
-Inside the Debian CI container, prepare the sysroot as root and build native Qt
-host tools before configuring ARM64:
+The CI image includes the cross-toolchain and ARM64 development packages through
+Debian multiarch. Build native Qt host tools first, then configure ARM64:
 
 ```sh
-bash script/setup-aarch64-sysroot.sh
 cmake --preset release-linux
 cmake --build --preset release-linux --target jpdf-desk --parallel 2
-env -u PKG_CONFIG_PATH \
-    PKG_CONFIG_SYSROOT_DIR=/opt/sysroot \
-    PKG_CONFIG_LIBDIR=/opt/sysroot/usr/lib/aarch64-linux-gnu/pkgconfig:/opt/sysroot/usr/share/pkgconfig \
-    cmake --preset release-linux-arm64 --fresh
+cmake --preset release-linux-arm64 --fresh
 cmake --build --preset release-linux-arm64 --parallel 2
 ```
 
-The sysroot script extracts target packages into `/opt/sysroot` and may overwrite
-existing files. Keep pkg-config isolated from host libraries as above; the CI
-helper does not currently set this isolation itself.
+The toolchain selects ARM64 libraries and isolates pkg-config automatically;
+no separate sysroot is needed. Republish the CI image after Dockerfile changes.

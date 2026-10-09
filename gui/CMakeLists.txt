@@ -93,6 +93,17 @@ qt6_add_resources(jpdf-desk-gui-lib jpdf_desk_ui
 )
 
 qt_add_executable(jpdf-desk WIN32 MANUAL_FINALIZATION main.cpp)
+if(APPLE)
+    # QtBase's default template path is local to its build subdirectory.
+    # Supply our own plist before Qt finalizes the application bundle.
+    set_target_properties(jpdf-desk PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macos/Info.plist.in"
+        MACOSX_BUNDLE_BUNDLE_NAME "${JPDF_DESK_DISPLAY_NAME}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.juraj8.jpdf-desk"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    )
+endif()
 if(WIN32)
     # Own the app manifest rather than depending on Qt's subdirectory-local
     # template path when QtBase is built in the same CMake project.
