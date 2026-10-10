@@ -30,10 +30,18 @@ endforeach()
 # target only guarantees SSE2. Use its portable cores rather than requiring
 # SSE4.1 for every Windows CPU (the app does not use deskew).
 set(_mupdf_platform_args)
+if(APPLE)
+    # MuPDF enables response files with GNU Make 4+, but Apple's ar treats
+    # @file as a literal filename rather than a list of object files.
+    list(APPEND _mupdf_platform_args "USE_ARGUMENT_FILE=no")
+endif()
+if(CMAKE_CROSSCOMPILING OR WIN32)
+    # MuPDF's binary font embedding uses the host linker and can produce
+    # objects incompatible with the target. Compile generated C data instead.
+    list(APPEND _mupdf_platform_args "HAVE_OBJCOPY=no")
+endif()
 if(WIN32)
-    # Do not let uname select Linux's host linker for embedded font objects
-    # during cross-compilation. Generated C data works with the target compiler.
-    list(APPEND _mupdf_platform_args "OS=Windows" "HAVE_OBJCOPY=no")
+    list(APPEND _mupdf_platform_args "OS=Windows")
 endif()
 if(MINGW)
     list(APPEND _mupdf_platform_args "XCFLAGS=-DARCH_HAS_SSE=0")
