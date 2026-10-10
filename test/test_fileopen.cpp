@@ -8,6 +8,7 @@
 #include <QTemporaryDir>
 #include <QTextEdit>
 #include <QTimer>
+#include <iostream>
 
 // Synthetic security dictionaries: no real protected document or authorization needed.
 static bool writePdf(const QString &path, const QByteArray &handler)
@@ -35,7 +36,7 @@ static bool writePdf(const QString &path, const QByteArray &handler)
     return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
 }
 
-int main(int argc, char **argv)
+static int runTest(int argc, char **argv)
 {
     QApplication app(argc, argv);
     app.setAttribute(Qt::AA_DontUseNativeDialogs);
@@ -91,6 +92,18 @@ int main(int argc, char **argv)
                 valid = dialog->windowTitle() == QStringLiteral("Cannot open PDF")
                     && dialog->text().contains("OtherHandler");
             }
+            if (!valid) {
+                std::cerr << "Unexpected warning dialog for " << handler.constData()
+                          << ": " << dialog->windowTitle().toStdString() << '\n'
+                          << dialog->text().toStdString() << '\n'
+                          << dialog->detailedText().toStdString() << '\n';
+                for (auto *button : dialog->buttons())
+                    std::cerr << "Button: " << button->text().toStdString() << '\n';
+                std::cerr << "Cancel is default: "
+                          << (dialog->defaultButton() == dialog->button(QMessageBox::Cancel))
+                          << ", details widget exists: " << (dialog->findChild<QTextEdit *>() != nullptr)
+                          << '\n';
+            }
             dialog->reject();
         });
         warningTimer.start(1);
@@ -123,4 +136,12 @@ int main(int argc, char **argv)
     window.openDocument(dir.filePath("FOPN_foweb.pdf"));
     if (!chooserShown || window.windowTitle() != title) return 7;
     return 0;
+}
+
+int main(int argc, char **argv)
+{
+    const int result = runTest(argc, argv);
+    if (result != 0)
+        std::cerr << "fileopen test failed with code " << result << '\n';
+    return result;
 }

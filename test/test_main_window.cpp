@@ -32,7 +32,7 @@
 #include <iostream>
 #include <cmath>
 
-int main(int argc, char **argv)
+static int runTest(int argc, char **argv)
 {
     QApplication app(argc, argv);
     SignatureServices services;
@@ -613,4 +613,12 @@ int main(int argc, char **argv)
     const auto empty = captureAnnotations(annotationScene);
     if (!empty.fields.isEmpty() || !empty.marks.isEmpty() || !empty.signatures.isEmpty()) return 47;
     return 0;
+}
+
+int main(int argc, char **argv)
+{
+    const int result = runTest(argc, argv);
+    if (result != 0)
+        std::cerr << "main-window test failed with code " << result << '\n';
+    return result;
 }

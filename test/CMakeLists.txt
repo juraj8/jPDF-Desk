@@ -12,7 +12,11 @@ function(jpdf_desk_add_test name source)
 endfunction()
 
 if(TARGET jpdf-desk-openssl)
-    find_program(JPDF_DESK_OPENSSL_EXECUTABLE openssl REQUIRED)
+    # macOS also ships a system openssl (LibreSSL), whose PKCS#12 defaults
+    # may require legacy ciphers unavailable in the linked OpenSSL provider.
+    find_program(JPDF_DESK_OPENSSL_EXECUTABLE openssl
+        HINTS "${OPENSSL_INCLUDE_DIR}/../bin" "${OPENSSL_ROOT_DIR}/bin" "$ENV{OPENSSL_ROOT_DIR}/bin"
+        REQUIRED)
     jpdf_desk_add_test(signing test_pdf_signing.cpp
         LIBRARIES jpdf-desk-document jpdf-desk-openssl jpdf-desk-mupdf
         ARGUMENTS "${JPDF_DESK_OPENSSL_EXECUTABLE}")

@@ -16,7 +16,12 @@ int main(int argc, char **argv)
     auto run = [&](const QStringList &args) {
         QProcess process;
         process.start(QString::fromLocal8Bit(argv[1]), args);
-        return process.waitForFinished(30000) && process.exitCode() == 0;
+        const bool success = process.waitForFinished(30000)
+            && process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0;
+        if (!success)
+            std::cerr << "Certificate generation failed: " << argv[1] << '\n'
+                      << process.readAllStandardError().constData() << '\n';
+        return success;
     };
     const QString key = dir.filePath("key.pem"), cert = dir.filePath("cert.pem");
     const QString pfx = dir.filePath("cert.p12");
