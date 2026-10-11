@@ -29,12 +29,30 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTemporaryDir>
+#include <QTextBlock>
+#include <QTextDocument>
+#include <QTextLayout>
 #include <iostream>
 #include <cmath>
 
 static int runTest(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    // Preview baselines must match export regardless of platform font metrics,
+    // including after changing the size of an existing text box.
+    EditableText baselineText({{0, 0, 500, 100}, QStringLiteral("Editable text"), 12});
+    for (int points : {8, 12, 24, 48}) {
+        baselineText.setFontSize(points);
+        baselineText.document()->size(); // Force text layout before inspecting it.
+        const auto *layout = baselineText.document()->firstBlock().layout();
+        if (!layout || layout->lineCount() == 0) return 96;
+        const auto line = layout->lineAt(0);
+        const qreal baseline = layout->position().y() + line.y() + line.ascent();
+        if (std::abs(baseline - (4.0 + points * 1.325)) > 0.5) {
+            std::cerr << "Preview baseline at " << points << "pt: " << baseline << '\n';
+            return 97;
+        }
+    }
     SignatureServices services;
 #ifdef JPDF_DESK_HAS_OPENSSL
     services = openSslSignatureServices();
@@ -306,6 +324,9 @@ static int runTest(int argc, char **argv)
         const int previewY = firstInk(preview);
         const int exportedY = firstInk(exported);
         const int offset = previewY < 0 || exportedY < 0 ? 100 : previewY - exportedY;
+        if (std::abs(offset) > 2)
+            std::cerr << "Text alignment: preview y=" << previewY
+                      << ", exported y=" << exportedY << '\n';
         fz_drop_pixmap(compareCtx, pixels);
         pdf_drop_page(compareCtx, comparePage);
         pdf_drop_document(compareCtx, compareDoc);

@@ -36,6 +36,17 @@ static bool writePdf(const QString &path, const QByteArray &handler)
     return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
 }
 
+static bool hasMessageBoxTitle(const QMessageBox &dialog, const QString &title)
+{
+#ifdef Q_OS_MACOS
+    // QMessageBox deliberately ignores titles on macOS, even with offscreen QPA.
+    Q_UNUSED(title);
+    return dialog.windowTitle().isEmpty();
+#else
+    return dialog.windowTitle() == title;
+#endif
+}
+
 static int runTest(int argc, char **argv)
 {
     QApplication app(argc, argv);
@@ -63,7 +74,7 @@ static int runTest(int argc, char **argv)
                 bool hasReader = false;
                 for (auto *button : dialog->buttons())
                     if (button->text() == QStringLiteral("Choose external reader…")) hasReader = true;
-                valid = dialog->windowTitle() == QStringLiteral("FileOpen-protected PDF")
+                valid = hasMessageBoxTitle(*dialog, QStringLiteral("FileOpen-protected PDF"))
                     && dialog->text().contains("FileOpen plug-in")
                     && dialog->detailedText().contains("Security handler: FOPN_foweb")
                     && dialog->detailedText().contains("Declared page count: 1")
@@ -89,7 +100,7 @@ static int runTest(int argc, char **argv)
                 }
                 valid = valid && toggledDetails;
             } else {
-                valid = dialog->windowTitle() == QStringLiteral("Cannot open PDF")
+                valid = hasMessageBoxTitle(*dialog, QStringLiteral("Cannot open PDF"))
                     && dialog->text().contains("OtherHandler");
             }
             if (!valid) {
