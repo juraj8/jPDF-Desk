@@ -8,6 +8,10 @@ QString windowStyle(bool dark)
         QMainWindow, QDialog, QWidget#centralWidget { background: @background; color: @text; }
         QLabel, QCheckBox, QRadioButton, QGroupBox { color: @text; }
         QFrame#sidebar { background: @surface; border-right: 1px solid @border; }
+        QFrame#documentToolbar { background: transparent; border: none; }
+        QPushButton#moreButton { padding: 0; }
+        QPushButton#moreButton::menu-indicator { image: none; }
+        QLabel#signatureWorkflowHint { color: @muted; font-size: 11px; }
         QFrame#outlinePanel { background: @surface; border-left: 1px solid @border; }
         QFrame#outlineCard, QFrame#thumbnailCard, QFrame#printCard {
             background: @surface; border: 1px solid @border; border-radius: 7px;
@@ -26,6 +30,9 @@ QString windowStyle(bool dark)
         QTreeWidget:focus, QListWidget:focus { border-color: @focus; }
         QLineEdit:disabled, QPlainTextEdit:disabled { color: @disabledText; background: @disabled; }
         QPushButton#previousButton, QPushButton#nextButton { padding: 6px 0; }
+        QLabel#welcomeHeading { font-size: 32px; font-weight: 700; }
+        QLabel#welcomeHint { color: @muted; font-size: 18px; }
+        QPushButton#welcomeOpenButton { border-radius: 22px; padding: 12px 28px; font-size: 18px; }
         QLabel#windowHeading { font-size: 22px; font-weight: 700; color: @text; }
         QLabel#windowSubtitle { color: @muted; font-size: 13px; }
         QLabel#sectionHeading { color: @muted; font-size: 11px; font-weight: 700; }

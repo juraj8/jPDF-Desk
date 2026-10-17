@@ -1,23 +1,20 @@
 #include "ui/sidebar.h"
 
-#include <QActionGroup>
 #include <QGridLayout>
 #include <QStyle>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QImage>
 #include <QLabel>
-#include <QMenu>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include <QWidgetAction>
 
 Sidebar::Sidebar(const QIcon &icon, QWidget *parent) : QFrame(parent)
 {
     setObjectName(QStringLiteral("sidebar"));
     setFixedWidth(248);
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(18, 24, 18, 20);
+    layout->setContentsMargins(18, 18, 18, 16);
     layout->setSpacing(10);
     auto *brandRow = new QHBoxLayout;
     brandRow->setSpacing(10);
@@ -36,39 +33,6 @@ Sidebar::Sidebar(const QIcon &icon, QWidget *parent) : QFrame(parent)
     brandText->addWidget(subtitle);
     brandRow->addLayout(brandText);
     layout->addLayout(brandRow);
-    layout->addSpacing(12);
-
-    const auto button = [this](const QString &text, const QString &name) {
-        auto *result = new QPushButton(text, this);
-        result->setObjectName(name);
-        return result;
-    };
-    open_ = button(tr("Open PDF"), QStringLiteral("openButton"));
-    save_ = button(tr("Save as PDF"), QStringLiteral("saveButton"));
-    save_->setProperty("primary", true);
-    layout->addWidget(open_);
-    layout->addWidget(save_);
-    auto *fileRow = new QHBoxLayout;
-    print_ = button(tr("Print…"), QStringLiteral("printButton"));
-    print_->setToolTip(tr("Print all pages, a page range, or the current page, including unsaved edits."));
-    fileRow->addWidget(print_);
-    auto *more = button(tr("More…"), QStringLiteral("moreButton"));
-    auto *menu = new QMenu(more);
-    metadata_ = button(tr("File metadata…"), QStringLiteral("metadataButton"));
-    metadata_->setToolTip(tr("View and edit PDF properties. Changes are included when you save."));
-    auto *metadataAction = new QWidgetAction(menu);
-    metadataAction->setDefaultWidget(metadata_);
-    menu->addAction(metadataAction);
-    connect(metadata_, &QPushButton::clicked, menu, &QMenu::hide);
-    password_ = button(tr("PDF password…"), QStringLiteral("passwordButton"));
-    password_->setToolTip(tr("Set, replace, or remove the password for the next saved copy."));
-    auto *passwordAction = new QWidgetAction(menu);
-    passwordAction->setDefaultWidget(password_);
-    menu->addAction(passwordAction);
-    connect(password_, &QPushButton::clicked, menu, &QMenu::hide);
-    more->setMenu(menu);
-    fileRow->addWidget(more);
-    layout->addLayout(fileRow);
     layout->addSpacing(8);
 
     const auto heading = [this, layout](const QString &text) {
@@ -76,7 +40,15 @@ Sidebar::Sidebar(const QIcon &icon, QWidget *parent) : QFrame(parent)
         label->setObjectName(QStringLiteral("sectionHeading"));
         layout->addWidget(label);
     };
-    heading(tr("TOOLS"));
+    const auto button = [this](const QString &text, const QString &name) {
+        auto *result = new QPushButton(text, this);
+        result->setObjectName(name);
+        return result;
+    };
+    heading(tr("FILL & ANNOTATE"));
+    form_ = button(tr("Fill form fields…"), QStringLiteral("formButton"));
+    form_->setToolTip(tr("Edit native text fields, checkboxes and choices on the current page."));
+    layout->addWidget(form_);
     auto *tools = new QGridLayout;
     tools->setSpacing(8);
     const auto tile = [button, tools](const QString &symbol, const QString &label,
@@ -90,54 +62,40 @@ Sidebar::Sidebar(const QIcon &icon, QWidget *parent) : QFrame(parent)
         return result;
     };
     add_ = tile(QStringLiteral("T"), tr("Text"), QStringLiteral("addButton"), 0, 0);
-    check_ = tile(QStringLiteral("✓"), tr("Checkmark"), QStringLiteral("checkButton"), 0, 1);
-    cross_ = tile(QStringLiteral("×"), tr("Cross"), QStringLiteral("crossButton"), 1, 0);
-    placeSignature_ = tile(QStringLiteral("✎"), tr("Signature"), QStringLiteral("placeSignatureButton"), 1, 1);
+    check_ = tile(QStringLiteral("✓"), tr("Check"), QStringLiteral("checkButton"), 0, 1);
+    check_->setAccessibleName(tr("Checkmark"));
+    check_->setToolTip(tr("Add a checkmark"));
+    cross_ = tile(QStringLiteral("×"), tr("Cross"), QStringLiteral("crossButton"), 0, 2);
+    for (int column = 0; column < 3; ++column)
+        tools->setColumnStretch(column, 1);
     layout->addLayout(tools);
-    form_ = button(tr("Fill form fields…"), QStringLiteral("formButton"));
-    form_->setToolTip(tr("Edit native text fields, checkboxes and choices on the current page."));
-    layout->addWidget(form_);
+    layout->addSpacing(4);
+    heading(tr("SIGN"));
+    auto *signatureHint = new QLabel(tr("Place an image if needed, then digitally sign. No intermediate save required."), this);
+    signatureHint->setObjectName(QStringLiteral("signatureWorkflowHint"));
+    signatureHint->setTextFormat(Qt::PlainText);
+    signatureHint->setWordWrap(true);
+    layout->addWidget(signatureHint);
+    auto *previewRow = new QHBoxLayout;
     signaturePreview_ = new QLabel(this);
     signaturePreview_->setObjectName(QStringLiteral("sidebarSignaturePreview"));
     signaturePreview_->setAlignment(Qt::AlignCenter);
     signaturePreview_->setFixedHeight(42);
-    layout->addWidget(signaturePreview_);
-    loadSignature_ = button(tr("Manage signature images…"), QStringLiteral("loadSignatureButton"));
+    previewRow->addWidget(signaturePreview_, 1);
+    loadSignature_ = button(tr("Change…"), QStringLiteral("loadSignatureButton"));
     loadSignature_->setProperty("subtle", true);
-    layout->addWidget(loadSignature_);
-    layout->addSpacing(8);
-    heading(tr("DIGITAL SIGNATURES"));
-    sign_ = button(tr("Sign PDF…"), QStringLiteral("signButton"));
-    sign_->setToolTip(tr("Save with a cryptographic signature using a saved PKCS#12 certificate. Further edits may invalidate it."));
+    previewRow->addWidget(loadSignature_);
+    layout->addLayout(previewRow);
+    placeSignature_ = button(tr("Place signature image"), QStringLiteral("placeSignatureButton"));
+    layout->addWidget(placeSignature_);
+    sign_ = button(tr("Sign digitally…"), QStringLiteral("signButton"));
+    sign_->setToolTip(tr("Save and digitally sign all current edits, including placed signature images. "
+                         "An image is optional and is not itself a digital signature. Further edits may invalidate signing."));
     layout->addWidget(sign_);
     verifySignatures_ = button(tr("Check signatures…"), QStringLiteral("verifySignaturesButton"));
-    verifySignatures_->setToolTip(tr("Check signatures in the saved PDF, excluding unsaved edits."));
+    verifySignatures_->setToolTip(tr("Check digital signatures in the saved PDF, excluding unsaved edits."));
     layout->addWidget(verifySignatures_);
-    manageCertificates_ = button(tr("Manage certificates…"), QStringLiteral("manageCertificatesButton"));
-    manageCertificates_->setProperty("subtle", true);
-    layout->addWidget(manageCertificates_);
     layout->addStretch();
-    auto *appearance = button(tr("Appearance"), QStringLiteral("appearanceButton"));
-    appearance->setProperty("subtle", true);
-    appearance->setToolTip(tr("Choose System, Light, or Dark appearance. PDF colors stay unchanged."));
-    auto *appearanceMenu = new QMenu(appearance);
-    appearanceActions_ = new QActionGroup(this);
-    appearanceActions_->setExclusive(true);
-    const auto addAppearance = [&](const QString &text, const QString &name) {
-        auto *action = appearanceMenu->addAction(text);
-        action->setObjectName(name + QStringLiteral("ThemeAction"));
-        action->setData(name);
-        action->setCheckable(true);
-        appearanceActions_->addAction(action);
-    };
-    addAppearance(tr("System"), QStringLiteral("system"));
-    addAppearance(tr("Light"), QStringLiteral("light"));
-    addAppearance(tr("Dark"), QStringLiteral("dark"));
-    appearance->setMenu(appearanceMenu);
-    layout->addWidget(appearance);
-    about_ = button(tr("About…"), QStringLiteral("aboutButton"));
-    about_->setProperty("subtle", true);
-    layout->addWidget(about_);
     setSignaturePreview({});
 }
 
@@ -148,18 +106,21 @@ void Sidebar::setSignaturePreview(const QByteArray &png)
     signaturePreview_->setProperty("hasImage", !image.isNull());
     signaturePreview_->style()->unpolish(signaturePreview_);
     signaturePreview_->style()->polish(signaturePreview_);
-    if (image.isNull()) signaturePreview_->setText(tr("No signature image selected"));
-    else signaturePreview_->setPixmap(QPixmap::fromImage(image).scaled(200, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    signaturePreview_->setWordWrap(true);
+    signaturePreview_->setToolTip(image.isNull() ? tr("Choose an image to place on the PDF. This is not a digital signature.")
+                                               : tr("Selected signature image. Use Change to choose another."));
+    if (image.isNull()) signaturePreview_->setText(tr("No image selected"));
+    else signaturePreview_->setPixmap(QPixmap::fromImage(image).scaled(120, 40, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 void Sidebar::setDocumentState(int pageCount, bool hasSignature, bool canSign, bool canVerify)
 {
     const bool hasDocument = pageCount > 0;
-    for (auto *button : {add_, check_, cross_, save_, print_, metadata_, password_, form_})
+    for (auto *button : {add_, check_, cross_, form_})
         button->setEnabled(hasDocument);
     sign_->setEnabled(hasDocument && canSign);
     verifySignatures_->setEnabled(hasDocument && canVerify);
-    placeSignature_->setEnabled(hasDocument && hasSignature);
-    placeSignature_->setToolTip(!hasSignature ? tr("Import or select an image in Manage signature images first.")
-                                            : tr("Place the selected signature image on the PDF."));
+    placeSignature_->setEnabled(hasDocument);
+    placeSignature_->setToolTip(!hasSignature ? tr("Choose a signature image, then place and position it on the PDF.")
+                                            : tr("Place and position the selected image, then optionally save and digitally sign."));
 }

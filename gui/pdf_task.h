@@ -26,4 +26,5 @@ private:
 // Work owns its PDF/context. Returns false on cancellation, rethrows other errors.
 // Call on the GUI thread. Captured results are safe to read only after return.
 bool runPdfTask(QWidget *parent, const QString &title,
-                const std::function<void(const PdfTaskProgress &)> &work);
+                const std::function<void(const PdfTaskProgress &)> &work,
+                const QString &workUnit = {});

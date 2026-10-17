@@ -18,6 +18,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QToolButton>
 #include <exception>
 #include <stdexcept>
 
@@ -26,18 +27,21 @@ SignatureManager::SignatureManager(SignatureStore &store, QWidget *parent) : QDi
     const bool image = store.kind() == SignatureStore::Kind::Image;
     setObjectName(image ? QStringLiteral("signatureImagesDialog") : QStringLiteral("certificatesDialog"));
     setWindowTitle(image ? tr("Signature images") : tr("Signing certificates"));
-    resize(550, 490);
+    resize(580, 500);
     auto *layout = new QVBoxLayout(this);
     auto *hint = dialogHint(image
-        ? tr("Import once, then use your signature in any session. Signature images are not digital signatures. "
-             "Images used in a PDF are stored in its metadata and can be extracted by anyone with the PDF.")
-        : tr("Import a PKCS#12 certificate (.p12/.pfx) containing your private key. The app stores its own copy, "
-             "so use a password-protected file. Passwords are never saved and are requested each time you sign. "
-             "Certificates are validated when signing."), this);
+        ? tr("Import a signature image, then select it and choose Use selected. Images are not digital signatures.")
+        : tr("Import a password-protected signing certificate (.p12/.pfx), then choose Use selected. "
+             "You will be asked for its password when signing."), this);
     layout->addWidget(hint);
     auto *list = new QListWidget(this);
     list->setObjectName(QStringLiteral("savedAssets"));
+    list->setSpacing(4);
     layout->addWidget(list, 1);
+    auto *empty = dialogHint(image ? tr("No signature images yet. Choose Import to add one.")
+                                  : tr("No signing certificates yet. Choose Import to add one."), this);
+    empty->setObjectName(QStringLiteral("emptyLibraryHint"));
+    layout->addWidget(empty);
     auto *preview = new QLabel(this);
     preview->setObjectName(QStringLiteral("signaturePreview"));
     preview->setAlignment(Qt::AlignCenter);
@@ -51,13 +55,31 @@ SignatureManager::SignatureManager(SignatureStore &store, QWidget *parent) : QDi
     auto *remove = new QPushButton(tr("Remove"), this);
     remove->setProperty("danger", true);
     row->addWidget(import);
+    row->addStretch();
     row->addWidget(rename);
     row->addWidget(remove);
     layout->addLayout(row);
-    auto *location = new QLabel(tr("Stored in: %1\nChanges to this library are saved immediately. Removing an item does not change existing PDFs or the original file.").arg(store.directory()), this);
+    auto *info = new QToolButton(this);
+    info->setText(tr("Storage and privacy"));
+    info->setCheckable(true);
+    info->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    info->setArrowType(Qt::RightArrow);
+    layout->addWidget(info, 0, Qt::AlignLeft);
+    const QString privacy = image
+        ? tr("Images used in a PDF are stored in its metadata and can be extracted by anyone with the PDF.")
+        : tr("The app stores its own copy of the certificate. Use a password-protected file. "
+             "Passwords are never saved. Certificates are validated when signing.");
+    auto *location = new QLabel(tr("Stored in: %1\n\n%2\n\nChanges are saved immediately. Removing an item does not change existing PDFs or the original file.")
+                               .arg(store.directory(), privacy), this);
+    location->setTextFormat(Qt::PlainText);
     location->setWordWrap(true);
     location->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    location->hide();
     layout->addWidget(location);
+    connect(info, &QToolButton::toggled, location, [info, location](bool expanded) {
+        info->setArrowType(expanded ? Qt::DownArrow : Qt::RightArrow);
+        location->setVisible(expanded);
+    });
     auto *buttons = dialogButtons(this, QDialogButtonBox::Close);
     auto *use = buttons->addButton(tr("Use selected"), QDialogButtonBox::AcceptRole);
     use->setObjectName(QStringLiteral("useAsset"));
@@ -65,7 +87,7 @@ SignatureManager::SignatureManager(SignatureStore &store, QWidget *parent) : QDi
     const auto report = [this](const std::exception &e) {
         QMessageBox::warning(this, tr("Signature library"), QString::fromUtf8(e.what()));
     };
-    const auto refresh = [list, &store] {
+    const auto refresh = [list, empty, &store] {
         list->clear();
         const QString active = store.activeId();
         for (const auto &entry : store.entries()) {
@@ -77,6 +99,7 @@ SignatureManager::SignatureManager(SignatureStore &store, QWidget *parent) : QDi
                 list->setCurrentItem(item);
             }
         }
+        empty->setVisible(list->count() == 0);
     };
     connect(list, &QListWidget::currentItemChanged, this, [=, &store](QListWidgetItem *item) {
         use->setEnabled(item != nullptr);

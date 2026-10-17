@@ -39,6 +39,10 @@ ctest --preset debug
 
 ## Linux packages
 
+`./build.sh` (or `./build.sh debug`) builds debug, runs tests, and generates a
+DEB in `.build/debug/packages/` when `dpkg-deb` and `dpkg-shlibdeps` are available.
+To package an existing debug build manually, run `cpack --preset debug`.
+
 After building `release-linux`, install the relevant packaging tool (`dpkg-deb`
 and `dpkg-shlibdeps` for DEB, `rpmbuild` for RPM), then run:
 

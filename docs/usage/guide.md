@@ -81,16 +81,60 @@ Handwritten images work independently.
 Signing includes current edits in an invisible digital signature.
 Passwords are not saved. **Finish editing before signing:** later saves may
 invalidate signatures, and re-signing does not preserve earlier signatures.
-Timestamping, hardware tokens, and long-term validation are unsupported.
+Timestamp creation, hardware tokens, and long-term validation are unsupported.
 
 ### Check signatures
 
-Choose **Check signatures… → Details** for integrity, certificate checks,
-later revisions, and unsigned fields. Verification reads the saved PDF.
+Choose **Check signatures…** for an overall result and separate integrity,
+certificate-chain, certificate-date, signing-time, revocation, and document-coverage
+checks. Expand **Details** for diagnostics. Verification reads the saved PDF.
 Intact signed bytes do not establish trust or cover later unsigned revisions.
-The default provider uses MuPDF's certificate store, not the OS trust store,
-and does not check online revocation or timestamps. Validate in the recipient's
-signature-aware viewer too.
+
+The overall result distinguishes altered signed bytes (**Invalid**), a certificate
+rejected by the provider's trust policy (**Not trusted**), and incomplete evidence
+(**Validity not established**). Green individual checks do not mean full signature
+validity. Full historical validity is not established by this build because archived
+revocation and historical chain evidence are not verified. Certificate expiry today does not automatically
+invalidate an older signature; a claimed signing date within its validity period
+is not proof of historical validity.
+
+The OpenSSL provider verifies embedded RFC 3161 signature timestamp tokens offline:
+the imprint must match the signature value, and the token signature and TSA chain
+must validate. Timestamp hashes weaker than SHA-256 are not accepted. Timestamp
+trust uses system/OpenSSL CA roots. Linux uses OpenSSL's configured system CA
+paths (including `SSL_CERT_FILE` and `SSL_CERT_DIR`); Windows additionally imports
+its ROOT store and macOS imports native trust anchors. Importing roots is not the
+OS/viewer's full policy evaluator: native distrust constraints, application-specific
+trust rules, and cached intermediate certificates are not replicated. The
+TSA chain is checked at current time, not with historical revocation evidence;
+expired TSA certificates may therefore leave a timestamp unverified. A verified
+timestamp proves the signature existed by the TSA-reported time, not its exact
+creation time. The certificate period at that time is shown separately.
+
+Signer-chain validation accepts a chain validated by either system/OpenSSL CA
+roots or MuPDF's built-in store. **Details** reports both checks and exact system
+chain failures, including error depth and code. System chain checks use current
+time and the S/MIME-signing certificate purpose, matching MuPDF's existing purpose.
+
+Revocation is unchecked by default. Choose **Check revocation online…** in the
+signature report and confirm the privacy notice to contact issuer/TSA services.
+Requests can disclose certificate identifiers and that the document was checked.
+Checks run with progress and cancellation; cancellation leaves the previous report
+unchanged. Validated system/OpenSSL signer and TSA paths are checked for each
+non-root certificate using OCSP with CRL fallback. Missing/unvalidated paths are
+reported as skipped, and trusted anchors are not queried. Private endpoints,
+redirects, proxies, and oversized responses are blocked by the default transport.
+
+The summary distinguishes current **Good**, **Revoked**, **Unknown**, and **Failed**
+evidence, with per-certificate sources, update dates, revocation reasons, and
+invalidity dates in **Details**. Current Good evidence does not establish historical
+validity; a later revocation does not automatically invalidate an older signature.
+Key/CA compromise needs particular care. Online checks remain opt-in, and archive/
+historical revocation validation is unsupported.
+
+Missing, malformed, mismatched, and unverifiable timestamp
+tokens are reported separately. Standalone PDF document timestamps (`ETSI.RFC3161`)
+are not supported. Validate in the recipient's signature-aware viewer too.
 
 ## Stored images and certificates
 

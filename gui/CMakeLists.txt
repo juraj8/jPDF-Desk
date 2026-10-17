@@ -7,6 +7,8 @@ add_library(jpdf-desk-gui-lib STATIC
     ui/about_dialog.h
     ui/dialog_helpers.cpp
     ui/dialog_helpers.h
+    ui/document_toolbar.cpp
+    ui/document_toolbar.h
     ui/fileopen_dialog.cpp
     ui/fileopen_dialog.h
     ui/form_dialog.cpp
@@ -27,6 +29,8 @@ add_library(jpdf-desk-gui-lib STATIC
     signature_store.h
     ui/signature_manager.cpp
     ui/signature_manager.h
+    ui/signature_check_dialog.cpp
+    ui/signature_check_dialog.h
     ui/buttons.cpp
     ui/buttons.h
     ui/editable_text.cpp
@@ -70,6 +74,12 @@ target_link_libraries(jpdf-desk-gui-lib
     PUBLIC jpdf-desk-document jpdf-desk-printing Qt6::Widgets
     PRIVATE jpdf-desk-image
 )
+
+if(TARGET jpdf-desk-revocation-http)
+    target_sources(jpdf-desk-gui-lib PRIVATE signature_revocation.cpp)
+    target_link_libraries(jpdf-desk-gui-lib PRIVATE jpdf-desk-revocation-http)
+    target_compile_definitions(jpdf-desk-gui-lib PUBLIC JPDF_DESK_ONLINE_REVOCATION)
+endif()
 
 set(JPDF_DESK_LOGO "${PROJECT_SOURCE_DIR}/branding/jpdf-desk-logo-256.png")
 set_source_files_properties("${JPDF_DESK_LOGO}" PROPERTIES QT_RESOURCE_ALIAS icon.png)

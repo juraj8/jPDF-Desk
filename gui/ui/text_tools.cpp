@@ -25,13 +25,13 @@ TextTools::TextTools(QGraphicsView *view) : QFrame(view->viewport()), view_(view
     widthLabel_ = new QLabel(tr("Width"), this);
     layout->addWidget(widthLabel_);
     width_ = new QSpinBox(this);
-    width_->setObjectName(QStringLiteral("signatureWidth"));
+    width_->setObjectName(QStringLiteral("annotationWidth"));
     width_->setRange(40, 600);
     width_->setSuffix(tr(" px"));
     layout->addWidget(width_);
     widthLabel_->hide();
     width_->hide();
-    remove_ = new QPushButton(tr("Delete text"), this);
+    remove_ = new QPushButton(tr("Delete"), this);
     remove_->setObjectName(QStringLiteral("removeButton"));
     remove_->setProperty("danger", true);
     layout->addWidget(remove_);
@@ -43,9 +43,9 @@ void TextTools::setSelectionType(bool text, bool signature)
 {
     sizeLabel_->setVisible(text);
     size_->setVisible(text);
-    widthLabel_->setVisible(signature);
-    width_->setVisible(signature);
-    remove_->setText(signature ? tr("Delete signature") : text ? tr("Delete text") : tr("Delete mark"));
+    widthLabel_->setVisible(text || signature);
+    width_->setVisible(text || signature);
+    width_->setToolTip(text ? tr("Width of the selected text box") : tr("Width of the selected signature image"));
     adjustSize();
 }
 

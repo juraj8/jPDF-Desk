@@ -28,6 +28,13 @@ Apple Silicon macOS, and Snap packages. Native Linux/macOS tests run; Windows
 and ARM64 tests are only compiled. Windows builds omit digital signing;
 macOS bundles are unsigned and not notarized.
 
+The native Linux package job first builds/tests with OpenSSL enabled, then
+reconfigures the same build directory with `JPDF_DESK_WITH_OPENSSL=OFF` and runs
+all available tests again. Reusing Qt/MuPDF avoids a second full dependency build;
+packaged artifacts in `dist/` are unaffected. Diagnostics retain separate
+`test-results.xml` and `test-results-no-openssl.xml` reports. Both configurations
+must pass before the job can succeed or a tagged release can be published.
+
 [`script/ci-build.sh`](../../script/ci-build.sh) collects preset artifacts and
 checksums in `dist/<preset>/`. Actions artifacts are retained for 14 days.
 The [GitLab pipeline](../../.gitlab-ci.yml) also builds and packages the app;

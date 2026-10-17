@@ -121,6 +121,19 @@ int main(int argc, char **argv)
     if (!thumbnails->isVisible() || tree->isVisible() || !thumbnailView->isChecked()) return 28;
     if (thumbnails->count() != 3 || thumbnails->item(0)->icon().isNull() ||
         thumbnails->currentRow() != 0) return 19;
+    const auto thumbnailsCentered = [&] {
+        const QRect itemRect = thumbnails->visualItemRect(thumbnails->item(0));
+        return qAbs(itemRect.center().x() - thumbnails->viewport()->rect().center().x()) <= 1;
+    };
+    if (!thumbnailsCentered()) return 32;
+    window.resize(1100, 500);
+    app.processEvents();
+    app.processEvents();
+    if (!thumbnailsCentered()) return 33;
+    window.resize(1100, 1000);
+    app.processEvents();
+    app.processEvents();
+    if (!thumbnailsCentered()) return 34;
     thumbnails->itemClicked(thumbnails->item(1));
     app.processEvents();
     if (pageLabel->text() != "Page 2 / 3" || thumbnails->currentRow() != 1) return 20;
@@ -135,8 +148,8 @@ int main(int argc, char **argv)
     if (!tree->isVisible() || thumbnails->isVisible() || !outlineView->isChecked() ||
         thumbnailView->isChecked()) return 29;
     const auto fullHeightOutline = [&] {
-        return panel->parentWidget() == window.centralWidget() && panel->y() == 0 &&
-               panel->height() == window.centralWidget()->height();
+        return panel->mapTo(window.centralWidget(), QPoint()).y() == 0
+            && panel->height() == window.centralWidget()->height();
     };
     if (!fullHeightOutline()) return 18;
     auto *item = tree->topLevelItem(0)->child(0);

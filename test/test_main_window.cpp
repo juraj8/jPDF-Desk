@@ -12,7 +12,12 @@
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
 #include <QApplication>
+#include <QAction>
 #include <QDialog>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QTimer>
@@ -59,6 +64,11 @@ static int runTest(int argc, char **argv)
 #endif
     MainWindow window(nullptr, services);
     if (window.windowTitle() != QStringLiteral("jPDF Desk")) return 1;
+    auto *welcome = window.findChild<QWidget *>(QStringLiteral("welcomePage"));
+    auto *welcomeOpen = window.findChild<QPushButton *>(QStringLiteral("welcomeOpenButton"));
+    auto *toolbar = window.findChild<QWidget *>(QStringLiteral("documentToolbar"));
+    if (!welcome || welcome->isHidden() || !welcomeOpen || !welcomeOpen->isEnabled()
+        || !toolbar || toolbar->isVisibleTo(window.centralWidget()) || !window.acceptDrops()) return 98;
     auto *heading = window.findChild<QLabel *>(QStringLiteral("windowHeading"));
     if (!heading || heading->text() != QStringLiteral("jPDF Desk")) return 95;
     // Shared navigation setup must keep controls sized and accessible.
@@ -73,7 +83,7 @@ static int runTest(int argc, char **argv)
     auto *logo = window.findChild<QLabel *>(QStringLiteral("brandLogo"));
     if (window.windowIcon().isNull() || !logo || !logo->pixmap() || logo->pixmap().isNull())
         return 21;
-    auto *about = window.findChild<QPushButton *>(QStringLiteral("aboutButton"));
+    auto *about = window.findChild<QAction *>(QStringLiteral("aboutButton"));
     if (!about || !about->isEnabled()) return 93;
     bool aboutDialogValid = false;
     QTimer::singleShot(0, [&] {
@@ -108,7 +118,7 @@ static int runTest(int argc, char **argv)
         }
         dialog->reject();
     });
-    about->click();
+    about->trigger();
     if (!aboutDialogValid) return 94;
     int disabled = 0;
     for (auto *button : window.findChildren<QPushButton *>())
@@ -116,9 +126,9 @@ static int runTest(int argc, char **argv)
     if (disabled < 4) return 2;
     auto *verifySignatures = window.findChild<QPushButton *>(QStringLiteral("verifySignaturesButton"));
     if (!verifySignatures || verifySignatures->isEnabled()) return 70;
-    auto *metadataButton = window.findChild<QPushButton *>(QStringLiteral("metadataButton"));
+    auto *metadataButton = window.findChild<QAction *>(QStringLiteral("metadataButton"));
     if (!metadataButton || metadataButton->isEnabled()) return 85;
-    auto *print = window.findChild<QPushButton *>(QStringLiteral("printButton"));
+    auto *print = window.findChild<QAction *>(QStringLiteral("printButton"));
     if (!print || print->isEnabled()) return 72;
     auto *size = window.findChild<QSpinBox *>(QStringLiteral("textSize"));
     if (!size || size->minimum() > 8 || size->maximum() < 24) return 2;
@@ -172,8 +182,23 @@ static int runTest(int argc, char **argv)
     noCrypto.openDocument(output);
     if (noCrypto.findChild<QPushButton *>(QStringLiteral("signButton"))->isEnabled()
         || noCrypto.findChild<QPushButton *>(QStringLiteral("verifySignaturesButton"))->isEnabled()
-        || !noCrypto.findChild<QPushButton *>(QStringLiteral("printButton"))->isEnabled()) return 84;
-    window.openDocument(output);
+        || !noCrypto.findChild<QAction *>(QStringLiteral("printButton"))->isEnabled()) return 84;
+    QMimeData invalidDrop;
+    invalidDrop.setUrls({QUrl::fromLocalFile(dir.filePath("notes.txt"))});
+    QDragEnterEvent invalidDrag(QPoint(20, 20), Qt::CopyAction, &invalidDrop,
+                                Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(&window, &invalidDrag);
+    if (invalidDrag.isAccepted()) return 100;
+    QMimeData pdfDrop;
+    pdfDrop.setUrls({QUrl::fromLocalFile(output)});
+    QDragEnterEvent drag(QPoint(20, 20), Qt::CopyAction, &pdfDrop,
+                         Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(&window, &drag);
+    if (!drag.isAccepted()) return 101;
+    QDropEvent drop(QPointF(20, 20), Qt::CopyAction, &pdfDrop,
+                    Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(&window, &drop);
+    if (!drop.isAccepted() || !welcome->isHidden() || !toolbar->isVisibleTo(window.centralWidget())) return 99;
     if (verifySignatures->isEnabled() != bool(services.verification)) return 71;
     if (!print->isEnabled()) return 73;
     if (!metadataButton->isEnabled()) return 89;
@@ -188,7 +213,7 @@ static int runTest(int argc, char **argv)
         if (title) title->setText(QStringLiteral("Cancelled change"));
         dialog->reject();
     });
-    metadataButton->click();
+    metadataButton->trigger();
     if (!metadataDialogValid) return 90;
     QTimer::singleShot(0, [&] {
         auto *dialog = window.findChild<QDialog *>(QStringLiteral("metadataDialog"));
@@ -201,7 +226,7 @@ static int runTest(int argc, char **argv)
         if (subject) subject->setPlainText(QStringLiteral("First line\nSecond line\nThird line"));
         dialog->accept();
     });
-    metadataButton->click();
+    metadataButton->trigger();
     if (!metadataDialogValid) return 91;
     QTimer::singleShot(0, [&] {
         auto *dialog = window.findChild<QDialog *>(QStringLiteral("metadataDialog"));
@@ -212,7 +237,7 @@ static int runTest(int argc, char **argv)
             && subject && subject->toPlainText() == QStringLiteral("First line\nSecond line\nThird line");
         dialog->reject();
     });
-    metadataButton->click();
+    metadataButton->trigger();
     if (!metadataDialogValid) return 92;
     window.show();
     app.processEvents();
@@ -276,6 +301,9 @@ static int runTest(int argc, char **argv)
     const int expandedWidth = view->width();
     toggle->click();
     app.processEvents();
+    auto *documentToolbar = window.findChild<QWidget *>(QStringLiteral("documentToolbar"));
+    if (!documentToolbar || !documentToolbar->isVisible()
+        || !documentToolbar->findChild<QAction *>(QStringLiteral("openButton"))) return 98;
     if (sidebar->isVisible() || view->width() <= expandedWidth
         || !toggle->isVisible() || toggle->isChecked()
         || toggle->accessibleName() != QStringLiteral("Show tools")) return 22;
@@ -288,6 +316,9 @@ static int runTest(int argc, char **argv)
         || !toggle->isChecked() || toggle->accessibleName() != QStringLiteral("Hide tools")) return 23;
     auto *pageControls = window.findChild<QWidget *>(QStringLiteral("pageControls"));
     if (!pageControls || window.menuWidget()
+        || documentToolbar->y() != 0
+        || documentToolbar->parentWidget() != pageControls->parentWidget()
+        || documentToolbar->x() != pageControls->width()
         || sidebar->mapTo(window.centralWidget(), QPoint()).y() != 0
         || sidebar->height() != window.centralWidget()->height()
         || pageControls->mapTo(window.centralWidget(), QPoint()).y() != 0
@@ -365,8 +396,18 @@ static int runTest(int argc, char **argv)
     if (!tools->isHidden()) return 12;
     item->setSelected(true);
     if (tools->isHidden()) return 14;
+    auto *textWidth = tools->findChild<QSpinBox *>(QStringLiteral("annotationWidth"));
+    if (!textWidth || !textWidth->isVisible()
+        || textWidth->value() != qRound(item->textWidth())) return 102;
+    const int originalWidth = textWidth->value();
+    textWidth->setValue(500);
+    if (item->textWidth() != 500 || item->font().pixelSize() != 27) return 103;
+    scene->clearSelection();
+    item->setSelected(true);
+    if (textWidth->value() != 500) return 104;
+    textWidth->setValue(originalWidth);
     auto *remove = tools->findChild<QPushButton *>();
-    if (!remove) return 15;
+    if (!remove || remove->text() != QStringLiteral("Delete")) return 15;
     remove->click();
     for (QGraphicsItem *candidate : scene->items())
         if (candidate->type() == EditableText::Type) return 16;
@@ -504,7 +545,7 @@ static int runTest(int argc, char **argv)
     QGraphicsItem *placed = nullptr;
     for (QGraphicsItem *candidate : scene->items())
         if (candidate->type() == SignatureItem::Type && candidate->isSelected()) placed = candidate;
-    auto *widthControl = window.findChild<QSpinBox *>(QStringLiteral("signatureWidth"));
+    auto *widthControl = window.findChild<QSpinBox *>(QStringLiteral("annotationWidth"));
     if (!placed || !widthControl || !widthControl->isVisible()) return 39;
     // The blank corner of a transparent signature must be draggable too,
     // not just the opaque ink or a thin selection border.

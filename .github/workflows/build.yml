@@ -68,6 +68,15 @@ jobs:
           echo /opt/appimage-tools >> "$GITHUB_PATH"
       - name: Build, test, and package
         run: bash script/ci-build.sh "${{ matrix.preset }}"
+      # Reuse native Qt/MuPDF outputs; distributable artifacts were already copied
+      # to dist/. Keep the enabled and disabled test reports separately.
+      - name: Build and test without OpenSSL
+        if: matrix.preset == 'release-linux'
+        run: |
+          cmake -S . -B .build/release-linux -DBUILD_TESTING=ON -DJPDF_DESK_WITH_OPENSSL=OFF
+          cmake --build .build/release-linux --parallel "$BUILD_JOBS"
+          ctest --test-dir .build/release-linux --output-on-failure --no-tests=error \
+            --output-junit test-results-no-openssl.xml
       - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -81,7 +90,7 @@ jobs:
         with:
           name: test-results-${{ matrix.preset }}
           path: |
-            .build/*/test-results.xml
+            .build/*/test-results*.xml
             .build/*/Testing/Temporary/
           if-no-files-found: ignore
           retention-days: 14

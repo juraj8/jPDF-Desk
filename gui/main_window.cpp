@@ -13,6 +13,11 @@
 #include "ui/outline_panel.h"
 #include "ui/sidebar.h"
 #include "ui/signature_manager.h"
+#include "ui/document_toolbar.h"
+#include "ui/signature_check_dialog.h"
+#ifdef JPDF_DESK_ONLINE_REVOCATION
+#include "signature_revocation.h"
+#endif
 #include "ui/theme.h"
 #include "ui/window_style.h"
 
@@ -20,6 +25,13 @@
 #include <QApplication>
 #include <QStyleHints>
 #include <QDialog>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
+#include <QLabel>
+#include <QPainter>
+#include <QPainterPath>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -47,9 +59,49 @@ MainWindow::MainWindow(QWidget *parent, SignatureServices services)
     setWindowIcon(QIcon(QStringLiteral(":/branding/icon.png")));
     auto *root = new QWidget(this);
     root->setObjectName(QStringLiteral("centralWidget"));
-    auto *layout = new QHBoxLayout(root);
+    auto *rootLayout = new QVBoxLayout(root);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
+    setAcceptDrops(true);
+    welcome_ = new QWidget(root);
+    welcome_->setObjectName(QStringLiteral("welcomePage"));
+    auto *welcomeLayout = new QVBoxLayout(welcome_);
+    welcomeLayout->setContentsMargins(24, 24, 24, 24);
+    welcomeLayout->setSpacing(18);
+    welcomeLayout->addStretch();
+    auto *documentIcon = new QLabel(welcome_);
+    documentIcon->setObjectName(QStringLiteral("welcomeIcon"));
+    documentIcon->setAlignment(Qt::AlignCenter);
+    welcomeLayout->addWidget(documentIcon);
+    welcomeLayout->addSpacing(12);
+    auto *welcomeHeading = new QLabel(tr("Open a Document"), welcome_);
+    welcomeHeading->setObjectName(QStringLiteral("welcomeHeading"));
+    welcomeHeading->setAlignment(Qt::AlignCenter);
+    welcomeLayout->addWidget(welcomeHeading);
+    auto *welcomeHint = new QLabel(tr("Drag and drop a PDF here"), welcome_);
+    welcomeHint->setObjectName(QStringLiteral("welcomeHint"));
+    welcomeHint->setAlignment(Qt::AlignCenter);
+    welcomeLayout->addWidget(welcomeHint);
+    welcomeLayout->addSpacing(16);
+    auto *welcomeOpen = new QPushButton(tr("Open…"), welcome_);
+    welcomeOpen->setObjectName(QStringLiteral("welcomeOpenButton"));
+    welcomeOpen->setProperty("primary", true);
+    welcomeOpen->setMinimumWidth(160);
+    connect(welcomeOpen, &QPushButton::clicked, this, [this] { openFile(); });
+    welcomeLayout->addWidget(welcomeOpen, 0, Qt::AlignHCenter);
+    welcomeLayout->addStretch();
+    rootLayout->addWidget(welcome_, 1);
+
+    editor_ = new QWidget(root);
+    auto *editorLayout = new QVBoxLayout(editor_);
+    editorLayout->setContentsMargins(0, 0, 0, 0);
+    editorLayout->setSpacing(0);
+    rootLayout->addWidget(editor_, 1);
+    documentToolbar_ = new DocumentToolbar(editor_);
+    auto *layout = new QHBoxLayout;
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
+    editorLayout->addLayout(layout, 1);
 
     sidebar_ = new Sidebar(windowIcon(), root);
     layout->addWidget(sidebar_);
@@ -59,7 +111,12 @@ MainWindow::MainWindow(QWidget *parent, SignatureServices services)
     workspaceLayout->setContentsMargins(0, 0, 0, 0);
     workspaceLayout->setSpacing(0);
     pageControls_ = new PageControls(workspace);
-    workspaceLayout->addWidget(pageControls_);
+    auto *navigation = new QHBoxLayout;
+    navigation->setContentsMargins(0, 0, 0, 0);
+    navigation->setSpacing(0);
+    navigation->addWidget(pageControls_, 1);
+    navigation->addWidget(documentToolbar_);
+    workspaceLayout->addLayout(navigation);
     view_ = new DocumentView(pdf_, workspace);
     workspaceLayout->addWidget(view_, 1);
     auto *search = pageControls_->searchControls();
@@ -114,9 +171,9 @@ MainWindow::MainWindow(QWidget *parent, SignatureServices services)
     });
 
     setCentralWidget(root);
-    for (auto *action : sidebar_->appearanceActions()->actions())
+    for (auto *action : documentToolbar_->appearanceActions()->actions())
         action->setChecked(action->data().toString() == UiTheme::modeName(themeMode_));
-    connect(sidebar_->appearanceActions(), &QActionGroup::triggered, this, [this](QAction *action) {
+    connect(documentToolbar_->appearanceActions(), &QActionGroup::triggered, this, [this](QAction *action) {
         themeMode_ = UiTheme::modeFromName(action->data().toString());
         UiTheme::saveMode(themeMode_);
         applyTheme();
@@ -128,19 +185,18 @@ MainWindow::MainWindow(QWidget *parent, SignatureServices services)
 #endif
     applyTheme();
     resize(1100, 800);
-    connect(sidebar_->aboutButton(), &QPushButton::clicked, this, [this] {
+    connect(documentToolbar_->aboutAction(), &QAction::triggered, this, [this] {
         AboutDialog dialog(windowIcon(), this);
         dialog.exec();
     });
-    sidebar_->openButton()->setShortcut(QKeySequence::Open);
-    sidebar_->saveButton()->setShortcut(QKeySequence::Save);
-    connect(sidebar_->openButton(), &QPushButton::clicked, this, [this] { openFile(); });
-    connect(sidebar_->saveButton(), &QPushButton::clicked, this, [this] { saveFile(); });
-    connect(sidebar_->metadataButton(), &QPushButton::clicked, this, [this] { editMetadata(); });
+    auto *openShortcut = new QShortcut(QKeySequence::Open, this);
+    connect(openShortcut, &QShortcut::activated, this, [this] { openFile(); });
+    connect(documentToolbar_->openAction(), &QAction::triggered, this, [this] { openFile(); });
+    connect(documentToolbar_->saveAction(), &QAction::triggered, this, [this] { saveFile(); });
+    connect(documentToolbar_->metadataAction(), &QAction::triggered, this, [this] { editMetadata(); });
     connect(sidebar_->formButton(), &QPushButton::clicked, this, [this] { editForm(); });
-    connect(sidebar_->passwordButton(), &QPushButton::clicked, this, [this] { editPassword(); });
-    sidebar_->printButton()->setShortcut(QKeySequence::Print);
-    connect(sidebar_->printButton(), &QPushButton::clicked, this, [this] { printFile(); });
+    connect(documentToolbar_->passwordAction(), &QAction::triggered, this, [this] { editPassword(); });
+    connect(documentToolbar_->printAction(), &QAction::triggered, this, [this] { printFile(); });
     connect(sidebar_->signButton(), &QPushButton::clicked, this, [this] { saveFile(true); });
     connect(sidebar_->verifySignaturesButton(), &QPushButton::clicked, this, [this] { checkSignatures(); });
     connect(sidebar_->addButton(), &QPushButton::clicked, view_, &DocumentView::addText);
@@ -150,10 +206,15 @@ MainWindow::MainWindow(QWidget *parent, SignatureServices services)
             [this] { view_->addMark(OptionMark::Cross); });
     connect(sidebar_->loadSignatureButton(), &QPushButton::clicked, this,
             [this] { loadSignature(); });
-    connect(sidebar_->manageCertificatesButton(), &QPushButton::clicked, this,
+    connect(documentToolbar_->manageSignatureImagesAction(), &QAction::triggered, this,
+            [this] { loadSignature(); });
+    connect(documentToolbar_->manageCertificatesAction(), &QAction::triggered, this,
             [this] { manageCertificates(); });
     connect(sidebar_->placeSignatureButton(), &QPushButton::clicked, view_,
-            [this] { view_->placeSignature(signatureTemplate_); });
+            [this] {
+                if (signatureTemplate_.isEmpty()) loadSignature();
+                if (!signatureTemplate_.isEmpty()) view_->placeSignature(signatureTemplate_);
+            });
     connect(pageControls_->previousButton(), &QPushButton::clicked, view_, [this] {
         view_->navigatePage(-1);
     });
@@ -178,11 +239,41 @@ void MainWindow::applyTheme()
     qApp->setPalette(UiTheme::palette(dark));
     qApp->setStyleSheet(windowStyle(dark));
     view_->setDarkTheme(dark);
+
+    // Paint a neutral, scalable document outline in the current theme's muted color.
+    const qreal ratio = devicePixelRatioF();
+    QPixmap icon(QSize(144, 160) * ratio);
+    icon.setDevicePixelRatio(ratio);
+    icon.fill(Qt::transparent);
+    QPainter painter(&icon);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(QColor(QString::fromLatin1(UiTheme::colors(dark).muted)), 8,
+                        Qt::SolidLine, Qt::SquareCap, Qt::RoundJoin));
+    QPainterPath outline;
+    outline.moveTo(94, 12);
+    outline.lineTo(28, 12);
+    outline.quadTo(12, 12, 12, 28);
+    outline.lineTo(12, 132);
+    outline.quadTo(12, 148, 28, 148);
+    outline.lineTo(116, 148);
+    outline.quadTo(132, 148, 132, 132);
+    outline.lineTo(132, 50);
+    outline.closeSubpath();
+    painter.drawPath(outline);
+    painter.drawLine(94, 12, 94, 50);
+    painter.drawLine(94, 50, 132, 50);
+    for (int y : {70, 88, 106}) painter.drawLine(38, y, 106, y);
+    painter.drawLine(38, 124, 68, 124);
+    painter.end();
+    welcome_->findChild<QLabel *>(QStringLiteral("welcomeIcon"))->setPixmap(icon);
 }
 
 void MainWindow::showDocument(bool resetPage, const LoadedPdf *loaded)
 {
     const int count = pdf_.pageCount();
+    welcome_->setVisible(count == 0);
+    editor_->setVisible(count > 0);
+    documentToolbar_->setDocumentState(count > 0);
     sidebar_->setDocumentState(count, !signatureTemplate_.isEmpty(),
                                pdf_.canDigitallySign(), pdf_.canVerifySignatures());
     outlinePanel_->setPages(0, {});
@@ -202,6 +293,24 @@ void MainWindow::showDocument(bool resetPage, const LoadedPdf *loaded)
             QMessageBox::warning(this, tr("Cannot load PDF outline"), QString::fromUtf8(e.what()));
         }
     }
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    const auto urls = event->mimeData()->urls();
+    if (urls.size() == 1 && urls.first().isLocalFile()
+        && QFileInfo(urls.first().toLocalFile()).suffix().compare(QStringLiteral("pdf"), Qt::CaseInsensitive) == 0)
+        event->acceptProposedAction();
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    const auto urls = event->mimeData()->urls();
+    if (urls.size() != 1 || !urls.first().isLocalFile()
+        || QFileInfo(urls.first().toLocalFile()).suffix().compare(QStringLiteral("pdf"), Qt::CaseInsensitive) != 0)
+        return;
+    event->acceptProposedAction();
+    openDocument(urls.first().toLocalFile());
 }
 
 void MainWindow::openFile()
@@ -347,38 +456,19 @@ void MainWindow::checkSignatures()
     if (!pdf_.pageCount()) return;
     try {
         const auto signatures = pdf_.checkDigitalSignatures();
-        QStringList details;
-        for (int i = 0; i < signatures.size(); ++i) {
-            const auto &signature = signatures[i];
-            QString text = tr("Signature %1 — %2").arg(i + 1).arg(signature.fieldName);
-            if (!signature.error.isEmpty()) {
-                text += tr("\nCould not verify: %1").arg(signature.error);
-            } else if (!signature.signedField) {
-                text += tr("\nUnsigned signature field.");
-            } else {
-                text += tr("\nSigner: %1").arg(signature.signer.isEmpty() ? tr("Unknown") : signature.signer);
-                text += signature.digestValid ? tr("\nIntegrity: signed bytes are intact.")
-                    : tr("\nIntegrity check FAILED: %1").arg(signature.digestStatus);
-                text += signature.certificateTrusted
-                    ? tr("\nCertificate: accepted by the verification provider's trust policy.")
-                    : tr("\nCertificate not trusted or validation failed: %1").arg(signature.certificateStatus);
-                text += signature.changedSinceSigning
-                    ? tr("\nLater PDF revisions exist: the signature does not cover the current document in full.")
-                    : tr("\nNo later PDF revisions detected.");
-            }
-            details.append(text);
-        }
-        QMessageBox report(this);
-        report.setWindowTitle(tr("Digital signature check"));
-        report.setIcon(QMessageBox::Information);
-        report.setTextFormat(Qt::PlainText);
-        report.setText(signatures.isEmpty() ? tr("No digital signature fields found.")
-            : tr("Found %1 digital signature field(s). Open Details for the results.").arg(signatures.size()));
-        report.setInformativeText(tr("Checks the saved PDF only; unsaved edits are excluded. "
-            "Integrity and certificate trust are separate checks. Trust policy: %1")
-            .arg(pdf_.signatureTrustDescription()));
-        if (!details.isEmpty()) report.setDetailedText(details.join(QStringLiteral("\n\n")));
+        SignatureCheckDialog::OnlineCheck onlineCheck;
+#ifdef JPDF_DESK_ONLINE_REVOCATION
+        onlineCheck = [](QWidget *parent, QVector<DigitalSignatureStatus> &checked) {
+            return runOnlineSignatureRevocation(parent, checked);
+        };
+#endif
+        SignatureCheckDialog report(signatures, pdf_.signatureTrustDescription(), this, onlineCheck,
+                                    [this] { return pdf_.checkDigitalSignatures(); });
         report.exec();
+    } catch (const jpdf::crypto::ClockValidationError &e) {
+        QMessageBox::warning(this, tr("System clock appears incorrect"),
+            tr("Signature validity has not been determined. Correct the system date and time, then retry.\n\n%1")
+                .arg(QString::fromUtf8(e.what())));
     } catch (const std::exception &e) {
         QMessageBox::critical(this, tr("Cannot check signatures"), QString::fromUtf8(e.what()));
     }
@@ -390,7 +480,8 @@ void MainWindow::saveFile(bool digitallySign)
     QString certificate, password;
     if (digitallySign) {
         if (QMessageBox::question(this, tr("Digital signature"),
-            tr("Sign the completed PDF with your certificate? Further edits may invalidate the signature; "
+            tr("Save and digitally sign the completed PDF, including all current edits and placed signature images? "
+               "No intermediate save is needed. A signature image is optional. Further edits may invalidate the signature; "
                "existing digital signatures are not preserved by this save. "
                "Certificate trust depends on the recipient's PDF viewer.")) != QMessageBox::Yes) return;
         // Always show the selected identity before asking for its password.
@@ -408,8 +499,11 @@ void MainWindow::saveFile(bool digitallySign)
                                          QLineEdit::Password, {}, &ok);
         if (!ok) return;
     }
-    const QString path = QFileDialog::getSaveFileName(this, tr("Save PDF as"), {}, tr("PDF files (*.pdf)"));
+    QString path = QFileDialog::getSaveFileName(this, tr("Save PDF as"), {}, tr("PDF files (*.pdf)"));
     if (path.isEmpty()) return;
+    if (!path.endsWith(QStringLiteral(".pdf"), Qt::CaseInsensitive)) {
+        path += QStringLiteral(".pdf");
+    }
     try {
         const auto drafts = view_->captureDrafts();
         pdf_.saveSnapshot(path, drafts, signatureTemplate_, {certificate, password});

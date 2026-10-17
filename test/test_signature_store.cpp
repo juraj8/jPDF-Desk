@@ -1,6 +1,7 @@
 #include "signature_store.h"
 #include "ui/signature_manager.h"
 #include "ui/sidebar.h"
+#include "ui/document_toolbar.h"
 #include "ui/window_style.h"
 
 #include <QApplication>
@@ -8,6 +9,10 @@
 #include <QFile>
 #include <QImage>
 #include <QListWidget>
+#include <QLabel>
+#include <QGridLayout>
+#include <QMenu>
+#include <QVBoxLayout>
 #include <QPushButton>
 #include <QTemporaryDir>
 #include <iostream>
@@ -64,13 +69,17 @@ int main(int argc, char **argv)
         stored.close();
         certificatesAgain.remove(certificate);
         if (!certificates.entries().isEmpty() || !certificates.activePath().isEmpty()) return 13;
+        SignatureManager emptyManager(certificates);
+        auto *emptyHint = emptyManager.findChild<QLabel *>(QStringLiteral("emptyLibraryHint"));
+        auto *emptyUse = emptyManager.findChild<QPushButton *>(QStringLiteral("useAsset"));
+        if (!emptyHint || emptyHint->isHidden() || !emptyUse || emptyUse->isEnabled()) return 18;
         // Missing files do not leave an apparently usable active identity.
         images.select(first);
         if (!QFile::remove(images.activePath()) || !images.activeId().isEmpty()) return 14;
         Sidebar sidebar(QIcon{});
         sidebar.setStyleSheet(windowStyle());
         sidebar.setDocumentState(0, false, false, false);
-        if (!sidebar.loadSignatureButton()->isEnabled() || !sidebar.manageCertificatesButton()->isEnabled()
+        if (!sidebar.loadSignatureButton()->isEnabled()
             || sidebar.placeSignatureButton()->isEnabled()) return 15;
         if (sidebar.minimumSizeHint().height() > 800) {
             std::cerr << "Sidebar minimum height: " << sidebar.minimumSizeHint().height() << '\n';
@@ -78,6 +87,56 @@ int main(int argc, char **argv)
         }
         if (!sidebar.addButton()->property("toolTile").toBool()
             || sidebar.addButton()->property("primary").toBool()) return 16;
+        QStringList sections;
+        for (auto *label : sidebar.findChildren<QLabel *>(QStringLiteral("sectionHeading")))
+            sections << label->text();
+        if (sections != QStringList{"FILL & ANNOTATE", "SIGN"}) return 19;
+        DocumentToolbar toolbar;
+        toolbar.setStyleSheet(windowStyle());
+        if (!toolbar.openAction()->isEnabled() || toolbar.saveAction()->isEnabled()
+            || toolbar.printAction()->isEnabled() || toolbar.metadataAction()->isEnabled()
+            || toolbar.passwordAction()->isEnabled()) return 26;
+        toolbar.setDocumentState(true);
+        if (!toolbar.saveAction()->isEnabled() || !toolbar.printAction()->isEnabled()
+            || !toolbar.metadataAction()->isEnabled() || !toolbar.passwordAction()->isEnabled()) return 27;
+        auto *settings = toolbar.findChild<QPushButton *>(QStringLiteral("moreButton"));
+        if (!settings || !settings->text().isEmpty() || !settings->menu()
+            || settings->accessibleName().isEmpty()
+            || settings->menu()->actions().size() != 13) return 21;
+        auto *appearance = toolbar.findChild<QMenu *>(QStringLiteral("appearanceMenu"));
+        if (!appearance || appearance->actions().size() != 3
+            || !toolbar.aboutAction()->isEnabled()
+            || sidebar.findChild<QPushButton *>(QStringLiteral("aboutButton"))
+            || sidebar.findChild<QPushButton *>(QStringLiteral("appearanceButton"))) return 28;
+        if (toolbar.saveAction()->shortcut() != QKeySequence::Save
+            || toolbar.printAction()->shortcut() != QKeySequence::Print) return 24;
+        auto *sidebarLayout = qobject_cast<QVBoxLayout *>(sidebar.layout());
+        if (!sidebarLayout || sidebar.findChild<QPushButton *>(QStringLiteral("printButton"))
+            || sidebarLayout->indexOf(sidebar.placeSignatureButton()) < 0
+            || sidebar.placeSignatureButton()->property("toolTile").toBool()
+            || sidebar.formButton()->property("toolTile").toBool()
+            || sidebarLayout->indexOf(sidebar.formButton()) < 0) return 22;
+        QGridLayout *tools = nullptr;
+        for (int i = 0; i < sidebarLayout->count(); ++i)
+            if (auto *grid = qobject_cast<QGridLayout *>(sidebarLayout->itemAt(i)->layout())) tools = grid;
+        if (sidebar.findChild<QPushButton *>(QStringLiteral("manageSignaturesButton"))
+            || sidebar.loadSignatureButton()->text() != "Change…"
+            || sidebar.verifySignaturesButton()->property("subtle").toBool()
+            || sidebarLayout->indexOf(sidebar.verifySignaturesButton()) < 0
+            || !settings->menu()->actions().contains(toolbar.manageSignatureImagesAction())
+            || !settings->menu()->actions().contains(toolbar.manageCertificatesAction())) return 28;
+        toolbar.setDocumentState(false);
+        if (!toolbar.manageSignatureImagesAction()->isEnabled()
+            || !toolbar.manageCertificatesAction()->isEnabled()) return 29;
+        sidebar.setDocumentState(1, false, true, true);
+        if (!sidebar.placeSignatureButton()->isEnabled() || !sidebar.signButton()->isEnabled()
+            || sidebar.signButton()->text() != "Sign digitally…"
+            || !sidebar.findChild<QLabel *>(QStringLiteral("signatureWorkflowHint"))
+            || !sidebar.findChildren<QLabel *>(QStringLiteral("signatureGroupHeading")).isEmpty()) return 25;
+        if (!tools || tools->count() != 3
+            || tools->itemAtPosition(0, 0)->widget() != sidebar.addButton()
+            || tools->itemAtPosition(0, 1)->widget() != sidebar.checkButton()
+            || tools->itemAtPosition(0, 2)->widget() != sidebar.crossButton()) return 23;
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
         return 20;

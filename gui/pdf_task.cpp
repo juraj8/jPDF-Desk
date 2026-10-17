@@ -27,15 +27,15 @@ void PdfTaskProgress::report(int completed, int total) const
 namespace {
 class TaskDialog : public QDialog {
 public:
-    TaskDialog(QWidget *parent, const QString &title, PdfTaskProgress &progress)
-        : QDialog(parent), progress_(progress)
+    TaskDialog(QWidget *parent, const QString &title, PdfTaskProgress &progress, const QString &workUnit)
+        : QDialog(parent), progress_(progress), workUnit_(workUnit.isEmpty() ? tr("pages") : workUnit)
     {
         setObjectName(QStringLiteral("pdfTaskDialog"));
         setWindowTitle(title);
         setWindowModality(Qt::ApplicationModal);
         setMinimumWidth(360);
         auto *layout = new QVBoxLayout(this);
-        label_ = new QLabel(tr("Preparing document…"), this);
+        label_ = new QLabel(tr("Preparing operation…"), this);
         label_->setTextFormat(Qt::PlainText);
         layout->addWidget(label_);
         bar_ = new QProgressBar(this);
@@ -53,7 +53,7 @@ public:
             bar_->setRange(0, total);
             bar_->setValue(completed);
             if (!progress_.cancelled() && total > 0)
-                label_->setText(tr("Processed %1 of %2 pages").arg(completed).arg(total));
+                label_->setText(tr("Processed %1 of %2 %3").arg(completed).arg(total).arg(workUnit_));
         });
         timer_.start(50);
     }
@@ -64,11 +64,12 @@ public:
         // that still captures stack state or allow a reentrant document change.
         progress_.cancel();
         cancel_->setEnabled(false);
-        label_->setText(tr("Cancelling… Waiting for the current PDF operation to finish."));
+        label_->setText(tr("Cancelling… Waiting for the current operation to finish."));
     }
 
 private:
     PdfTaskProgress &progress_;
+    QString workUnit_;
     QLabel *label_;
     QProgressBar *bar_;
     QPushButton *cancel_;
@@ -77,10 +78,10 @@ private:
 }
 
 bool runPdfTask(QWidget *parent, const QString &title,
-                const std::function<void(const PdfTaskProgress &)> &work)
+                const std::function<void(const PdfTaskProgress &)> &work, const QString &workUnit)
 {
     PdfTaskProgress progress;
-    TaskDialog dialog(parent, title, progress);
+    TaskDialog dialog(parent, title, progress, workUnit);
     std::exception_ptr failure;
     auto thread = std::unique_ptr<QThread>(QThread::create([&] {
         try {

@@ -11,15 +11,37 @@ function(jpdf_desk_add_test name source)
     endif()
 endfunction()
 
+jpdf_desk_add_test(validation-clock test_validation_clock.cpp
+    LIBRARIES jpdf-desk-crypto-support)
+jpdf_desk_add_test(validation-clock-ui test_validation_clock_ui.cpp WIDGETS
+    LIBRARIES jpdf-desk-mupdf)
+
 if(TARGET jpdf-desk-openssl)
+    find_package(OpenSSL REQUIRED COMPONENTS Crypto)
     # macOS also ships a system openssl (LibreSSL), whose PKCS#12 defaults
     # may require legacy ciphers unavailable in the linked OpenSSL provider.
     find_program(JPDF_DESK_OPENSSL_EXECUTABLE openssl
         HINTS "${OPENSSL_INCLUDE_DIR}/../bin" "${OPENSSL_ROOT_DIR}/bin" "$ENV{OPENSSL_ROOT_DIR}/bin"
         REQUIRED)
+    jpdf_desk_add_test(openssl-support test_openssl_support.cpp
+        LIBRARIES jpdf-desk-crypto-support OpenSSL::Crypto)
     jpdf_desk_add_test(signing test_pdf_signing.cpp
         LIBRARIES jpdf-desk-document jpdf-desk-openssl jpdf-desk-mupdf
         ARGUMENTS "${JPDF_DESK_OPENSSL_EXECUTABLE}")
+    jpdf_desk_add_test(timestamp-verification test_timestamp_verification.cpp
+        LIBRARIES jpdf-desk-openssl OpenSSL::Crypto
+        ARGUMENTS "${JPDF_DESK_OPENSSL_EXECUTABLE}")
+endif()
+if(TARGET jpdf-desk-revocation)
+    jpdf_desk_add_test(revocation test_revocation.cpp
+        LIBRARIES jpdf-desk-revocation OpenSSL::Crypto)
+endif()
+if(TARGET jpdf-desk-revocation-http)
+    jpdf_desk_add_test(signature-revocation test_signature_revocation.cpp WIDGETS
+        LIBRARIES jpdf-desk-openssl
+        ARGUMENTS "${JPDF_DESK_OPENSSL_EXECUTABLE}")
+    jpdf_desk_add_test(revocation-http test_revocation_http.cpp
+        LIBRARIES jpdf-desk-revocation-http)
 endif()
 jpdf_desk_add_test(signature-services test_signature_services.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)

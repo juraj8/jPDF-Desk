@@ -6,6 +6,7 @@
 #include <QMainWindow>
 
 class DocumentView;
+class DocumentToolbar;
 class PageControls;
 class OutlinePanel;
 class Sidebar;
@@ -16,6 +17,10 @@ public:
     explicit MainWindow(QWidget *parent = nullptr, SignatureServices services = {});
     ~MainWindow() override;
     void openDocument(const QString &path);
+
+protected:
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     void applyTheme();
@@ -38,6 +43,9 @@ private:
     PageControls *pageControls_;
     OutlinePanel *outlinePanel_;
     Sidebar *sidebar_;
+    DocumentToolbar *documentToolbar_;
+    QWidget *welcome_;
+    QWidget *editor_;
     QByteArray signatureTemplate_;
     SignatureStore signatureStore_{SignatureStore::Kind::Image};
     SignatureStore certificateStore_{SignatureStore::Kind::Certificate};

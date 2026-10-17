@@ -44,9 +44,12 @@ DocumentView::DocumentView(PdfDocument &document, QWidget *parent)
             const bool signature = selection.first()->type() == SignatureItem::Type;
             if (isAnnotation(selection.first()))
                 textTools_->setSelectionType(text, signature);
-            if (signature) {
+            if (text || signature) {
                 QSignalBlocker blocker(textTools_->widthControl());
-                textTools_->widthControl()->setValue(static_cast<SignatureItem *>(selection.first())->width());
+                const qreal width = text
+                    ? static_cast<EditableText *>(selection.first())->textWidth()
+                    : static_cast<SignatureItem *>(selection.first())->width();
+                textTools_->widthControl()->setValue(qRound(width));
             }
             if (text) {
                 QSignalBlocker blocker(textTools_->sizeControl());
@@ -74,8 +77,10 @@ DocumentView::DocumentView(PdfDocument &document, QWidget *parent)
             if (auto *text = qgraphicsitem_cast<EditableText *>(item)) text->setFontSize(points);
     });
     connect(textTools_->widthControl(), QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int width) {
-        for (QGraphicsItem *item : scene_->selectedItems())
-            if (auto *signature = qgraphicsitem_cast<SignatureItem *>(item)) signature->setWidth(width);
+        for (QGraphicsItem *item : scene_->selectedItems()) {
+            if (auto *text = qgraphicsitem_cast<EditableText *>(item)) text->setTextWidth(width);
+            else if (auto *signature = qgraphicsitem_cast<SignatureItem *>(item)) signature->setWidth(width);
+        }
         updateTextTools();
     });
 }

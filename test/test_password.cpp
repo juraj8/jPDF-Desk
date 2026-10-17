@@ -4,6 +4,7 @@
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
 #include <QApplication>
+#include <QAction>
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QLabel>
@@ -100,7 +101,7 @@ int main(int argc, char **argv)
     reopened.open(dir.filePath("reset.pdf"));
 
     MainWindow window;
-    auto *passwordButton = window.findChild<QPushButton *>("passwordButton");
+    auto *passwordButton = window.findChild<QAction *>("passwordButton");
     if (!passwordButton || passwordButton->isEnabled()) return 14;
     window.openDocument(plain);
     if (!passwordButton->isEnabled()) return 15;
@@ -119,14 +120,14 @@ int main(int argc, char **argv)
         confirm->setText("new-secret");
         buttons->button(QDialogButtonBox::Ok)->click();
     });
-    passwordButton->click();
+    passwordButton->trigger();
     if (!validated) return 16;
     QTimer::singleShot(0, [&] {
         auto *dialog = window.findChild<QDialog *>("passwordDialog");
         dialog->findChild<QCheckBox *>("clearPassword")->setChecked(true);
         dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
     });
-    passwordButton->click();
+    passwordButton->trigger();
     const QString previousTitle = window.windowTitle();
     int prompts = 0;
     bool masked = true;

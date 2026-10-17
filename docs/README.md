@@ -12,6 +12,7 @@
 - [Build, test, and package](development/build.md)
 - [GUI architecture](development/gui.md)
 - [PDF libraries](development/libraries.md)
+- [Revocation library](development/revocation.md)
 - [CI setup](development/ci.md)
 
 ## Website

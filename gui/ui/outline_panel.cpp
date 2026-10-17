@@ -91,7 +91,7 @@ OutlinePanel::OutlinePanel(QPushButton *toggle, QWidget *parent)
     thumbnails_->setWrapping(false);
     thumbnails_->setMovement(QListView::Static);
     thumbnails_->setIconSize(QSize(160, 200));
-    thumbnails_->setGridSize(QSize(190, 230));
+    thumbnails_->setGridSize(QSize(thumbnails_->viewport()->width(), 230));
     thumbnails_->setSpacing(6);
     thumbnails_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     thumbnails_->viewport()->installEventFilter(this);
@@ -122,6 +122,7 @@ void OutlinePanel::setPages(int count, std::function<QImage(int)> render)
         auto *item = new QListWidgetItem(tr("Page %1").arg(i + 1), thumbnails_);
         item->setData(Qt::UserRole, i);
         item->setTextAlignment(Qt::AlignHCenter);
+        item->setSizeHint(thumbnails_->gridSize());
         item->setToolTip(tr("Go to page %1").arg(i + 1));
     }
     toggle_->setEnabled(count > 0 || tree_->topLevelItemCount() > 0);
@@ -137,8 +138,15 @@ void OutlinePanel::setCurrentPage(int page)
 bool OutlinePanel::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == thumbnails_->viewport() &&
-        (event->type() == QEvent::Resize || event->type() == QEvent::Show))
+        (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
+        // Give both the grid and delegate a full-width cell so previews and
+        // captions stay centered when the scrollbar changes the viewport width.
+        const QSize cell(thumbnails_->viewport()->width(), 230);
+        thumbnails_->setGridSize(cell);
+        for (int i = 0; i < thumbnails_->count(); ++i)
+            thumbnails_->item(i)->setSizeHint(cell);
         QTimer::singleShot(0, this, [this] { refreshThumbnails(); });
+    }
     return QFrame::eventFilter(watched, event);
 }
 

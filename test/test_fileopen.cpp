@@ -1,6 +1,7 @@
 #include "main_window.h"
 
 #include <QApplication>
+#include <QAction>
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -120,7 +121,7 @@ static int runTest(int argc, char **argv)
         warningTimer.start(1);
         window.openDocument(path);
         if (!valid || window.windowTitle() != title) return 5;
-        auto *print = window.findChild<QPushButton *>(QStringLiteral("printButton"));
+        auto *print = window.findChild<QAction *>(QStringLiteral("printButton"));
         if (!print || !print->isEnabled()) return 6;
     }
     // Choosing an external reader is optional; cancelling its chooser is harmless.

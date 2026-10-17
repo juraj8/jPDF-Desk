@@ -1,6 +1,12 @@
 #pragma once
 
+#include "signature_timestamp.h"
+#include "certificate_validation.h"
+#include "jpdf_desk/revocation/revocation_types.h"
+
 #include <QByteArray>
+#include <QDateTime>
+#include <QStringList>
 #include <QMap>
 #include <QPointF>
 #include <QRectF>
@@ -65,14 +71,39 @@ struct OutlineEntry {
     QVector<OutlineEntry> children;
 };
 
+struct SignatureRevocationCheck {
+    bool timestampAuthority = false;
+    bool trustAnchorOnly = false;
+    int depth = 0;
+    QString subject;
+    jpdf::revocation::Result result;
+};
+
 struct DigitalSignatureStatus {
+    enum class Integrity { NotChecked, Intact, Invalid, Failed };
+    using CertificateValidation = CertificateChainValidation;
     QString fieldName;
     bool signedField = false;
     QString signer;
     bool digestValid = false;
     QString digestStatus;
+    Integrity integrity = Integrity::NotChecked;
     bool certificateTrusted = false;
     QString certificateStatus;
+    CertificateValidation certificateValidation = CertificateValidation::NotChecked;
+    QDateTime certificateValidFrom;
+    QDateTime certificateValidUntil;
+    QDateTime signingTime; // Claimed PDF signing time, not a verified timestamp.
+    QDateTime verificationTime; // Captured UTC time used by the offline checks.
+    QDateTime revocationTime; // Captured UTC time used by the online checks.
+    SignatureTimestamp timestamp;
+    ValidatedCertificateChain signerChain;
+    bool revocationAttempted = false;
+    QVector<SignatureRevocationCheck> revocationChecks;
+    QStringList certificateProblems;
+    QString certificateDescription;
+    bool coverageChecked = false;
     bool changedSinceSigning = false;
     QString error;
+    QString clockError; // Trust/time checks were skipped; integrity can still be established.
 };
