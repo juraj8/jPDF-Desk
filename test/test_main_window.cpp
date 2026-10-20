@@ -185,13 +185,13 @@ static int runTest(int argc, char **argv)
         || !noCrypto.findChild<QAction *>(QStringLiteral("printButton"))->isEnabled()) return 84;
     QMimeData invalidDrop;
     invalidDrop.setUrls({QUrl::fromLocalFile(dir.filePath("notes.txt"))});
-    QDragEnterEvent invalidDrag(QPoint(20, 20), Qt::CopyAction, &invalidDrop,
+    QDragEnterEvent invalidDrag(QPointF(20, 20), Qt::CopyAction, &invalidDrop,
                                 Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(&window, &invalidDrag);
     if (invalidDrag.isAccepted()) return 100;
     QMimeData pdfDrop;
     pdfDrop.setUrls({QUrl::fromLocalFile(output)});
-    QDragEnterEvent drag(QPoint(20, 20), Qt::CopyAction, &pdfDrop,
+    QDragEnterEvent drag(QPointF(20, 20), Qt::CopyAction, &pdfDrop,
                          Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(&window, &drag);
     if (!drag.isAccepted()) return 101;

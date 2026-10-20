@@ -15,6 +15,19 @@
 #include <mupdf/pdf.h>
 
 namespace {
+bool hasExpectedTitle(const QMessageBox &message, const QString &title)
+{
+    // QMessageBox::setWindowTitle() is deliberately a no-op on macOS,
+    // including when using the offscreen platform plugin.
+#ifdef Q_OS_MACOS
+    Q_UNUSED(message);
+    Q_UNUSED(title);
+    return true;
+#else
+    return message.windowTitle() == title;
+#endif
+}
+
 // Exercise the UI's typed-error route without changing the process/OS clock.
 class ClockFailureProvider final : public VerificationProvider {
 public:
@@ -59,7 +72,7 @@ int main(int argc, char **argv)
     QTimer::singleShot(0, [&] {
         auto *message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
         if (!message) return;
-        appropriateMessage = message->windowTitle() == "System clock appears incorrect"
+        appropriateMessage = hasExpectedTitle(*message, QStringLiteral("System clock appears incorrect"))
             && message->icon() == QMessageBox::Warning
             && message->text().contains("Signature validity has not been determined")
             && message->text().contains("Correct the system date and time")
@@ -116,7 +129,9 @@ int main(int argc, char **argv)
     QTimer::singleShot(0, [&] {
         auto *message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
         if (!message) return;
-        retryError = message->windowTitle() == "Cannot recheck signatures";
+        retryError = hasExpectedTitle(*message, QStringLiteral("Cannot recheck signatures"))
+            && message->icon() == QMessageBox::Warning
+            && message->text() == QStringLiteral("Test recheck failed");
         message->accept();
     });
     retry->click();

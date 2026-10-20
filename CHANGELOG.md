@@ -30,6 +30,10 @@
   expandable storage/privacy information.
 - Allow resizing text-box widths as well as signature images.
 - Keep page thumbnails and captions centered as the viewport changes size.
+- Publish Linux AppImage, DEB, and RPM packages as separate CI artifacts and
+  release archives, each with its own checksums.
+- Improve portability of drag-and-drop and validation-clock UI tests, accounting
+  for macOS message-box titles and checking retry-error content.
 
 ## 1.1.0-rc5 — 2026-10-11
 

@@ -77,7 +77,44 @@ jobs:
           cmake --build .build/release-linux --parallel "$BUILD_JOBS"
           ctest --test-dir .build/release-linux --output-on-failure --no-tests=error \
             --output-junit test-results-no-openssl.xml
+      - name: Separate Linux packages
+        if: matrix.preset == 'release-linux'
+        run: |
+          set -euo pipefail
+          for format in appimage deb rpm; do
+            extension="$format"
+            if [[ "$format" == appimage ]]; then extension=AppImage; fi
+            directory="dist/release-linux-$format"
+            mkdir -p "$directory"
+            cp dist/release-linux/*."$extension" "$directory/"
+            (cd "$directory" && sha256sum ./* > SHA256SUMS)
+          done
+      - name: Upload Linux AppImage
+        if: matrix.preset == 'release-linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-appimage
+          path: dist/release-linux-appimage/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Linux DEB
+        if: matrix.preset == 'release-linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-deb
+          path: dist/release-linux-deb/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Linux RPM
+        if: matrix.preset == 'release-linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-rpm
+          path: dist/release-linux-rpm/
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload distribution artifacts
+        if: matrix.preset != 'release-linux'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.preset }}
@@ -198,7 +235,7 @@ jobs:
           mkdir release-assets
           output="$PWD/release-assets"
           # Keep each build and its own SHA256SUMS together: filenames overlap.
-          for preset in linux linux-static linux-arm64 windows windows-static mac-arm64 linux-snap; do
+          for preset in linux-appimage linux-deb linux-rpm linux-static linux-arm64 windows windows-static mac-arm64 linux-snap; do
             directory="artifacts/release-$preset"
             test -s "$directory/SHA256SUMS"
             (cd "$directory" && sha256sum --check SHA256SUMS)
