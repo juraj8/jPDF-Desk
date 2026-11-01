@@ -9,10 +9,13 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QTemporaryDir>
+#include <QUuid>
+#include <QSet>
 #include <utility>
 #include <exception>
 #include <stdexcept>
 #include <cstring>
+#include <cmath>
 
 namespace {
 constexpr float scale = 1.5f;
@@ -20,7 +23,8 @@ constexpr const char *owner = "jPDF Desk";
 constexpr const char *alignedSubject = "jPDF Desk aligned text";
 constexpr const char *checkSubject = "jPDF Desk checkmark";
 constexpr const char *crossSubject = "jPDF Desk cross";
-constexpr const char *signatureSubject = "jPDF Desk signature";
+constexpr const char *signatureIdKey = "JPDFDeskSignatureId";
+constexpr const char *signatureRectKey = "JPDFDeskSignatureRect";
 constexpr const char *signatureMetadata = "info:JPDFDeskSignature";
 bool matches(const char *value, const char *expected)
 {
@@ -119,7 +123,8 @@ PdfDocument::~PdfDocument()
 void PdfDocument::open(const QString &path, const QString &password)
 {
     auto next = mupdf::own(ctx_, static_cast<pdf_document *>(nullptr), pdf_drop_document);
-    const QByteArray name = QFile::encodeName(path);
+    // MuPDF expects UTF-8 paths, including on Windows (not the local code page).
+    const QByteArray name = path.toUtf8();
     QByteArray secret = password.toUtf8();
     try {
         next.reset(mupdf::call(ctx_, [&]() noexcept {
@@ -260,6 +265,35 @@ QVector<OutlineEntry> PdfDocument::outline() const
         return fz_load_outline(ctx_, reinterpret_cast<fz_document *>(doc_));
     }), fz_drop_outline);
     return outlineEntries(ctx_, doc_, tree.get());
+}
+
+QVector<PdfPageLink> PdfDocument::links(int pageNumber) const
+{
+    if (!doc_) return {};
+    auto *document = reinterpret_cast<fz_document *>(doc_);
+    auto page = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+        return pdf_load_page(ctx_, doc_, pageNumber);
+    }), pdf_drop_page);
+    auto links = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+        return fz_load_links(ctx_, reinterpret_cast<fz_page *>(page.get()));
+    }), fz_drop_link);
+    QVector<PdfPageLink> result;
+    for (auto *link = links.get(); link; link = link->next) {
+        // Never execute actions or open external files/URLs from page links.
+        if (!link->uri || fz_is_external_link(ctx_, link->uri)) continue;
+        const auto dest = mupdf::call(ctx_, [&]() noexcept {
+            return fz_resolve_link_dest(ctx_, document, link->uri);
+        });
+        if (dest.loc.page < 0) continue;
+        const int target = mupdf::call(ctx_, [&]() noexcept {
+            return fz_page_number_from_location(ctx_, document, dest.loc);
+        });
+        if (target < 0 || target >= pageCount()) continue;
+        result.append({toQt(link->rect), target,
+                       QPointF(std::isfinite(dest.x) ? dest.x * scale : 0,
+                               std::isfinite(dest.y) ? dest.y * scale : 0)});
+    }
+    return result;
 }
 
 QSizeF PdfDocument::pageSize(int pageNumber) const
@@ -405,24 +439,24 @@ QVector<Signature> PdfDocument::signatures(int pageNumber) const
     auto page = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return pdf_load_page(ctx_, doc_, pageNumber);
     }), pdf_drop_page);
-    for (pdf_annot *annot = pdf_first_annot(ctx_, page.get()); annot;
-         annot = pdf_next_annot(ctx_, annot)) {
-        const auto signature = mupdf::call(ctx_, [&]() noexcept {
-            struct SignatureData { bool owned; fz_rect rect; const char *contents; };
-            SignatureData data{};
-            if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_STAMP &&
-                isOwned(pdf_annot_author(ctx_, annot)) &&
-                matches(pdf_annot_subject(ctx_, annot), signatureSubject)) {
-                data.owned = true;
-                data.contents = pdf_annot_contents(ctx_, annot);
-                data.rect = pdf_annot_rect(ctx_, annot);
-            }
-            return data;
+    pdf_obj *contents = mupdf::call(ctx_, [&]() noexcept {
+        return pdf_dict_get(ctx_, page->obj, PDF_NAME(Contents));
+    });
+    const int count = mupdf::call(ctx_, [&]() noexcept {
+        return pdf_is_array(ctx_, contents) ? pdf_array_len(ctx_, contents) : 1;
+    });
+    for (int i = 0; i < count; ++i) {
+        const auto data = mupdf::call(ctx_, [&]() noexcept {
+            pdf_obj *stream = pdf_is_array(ctx_, contents) ? pdf_array_get(ctx_, contents, i) : contents;
+            struct SavedSignature { const char *id; fz_rect rect; };
+            return SavedSignature{
+                pdf_dict_gets(ctx_, stream, signatureRectKey)
+                    ? pdf_to_text_string(ctx_, pdf_dict_gets(ctx_, stream, signatureIdKey)) : "",
+                pdf_to_rect(ctx_, pdf_dict_gets(ctx_, stream, signatureRectKey))};
         });
-        if (!signature.owned) continue;
-        const QByteArray png = QByteArray::fromBase64(signature.contents ? signature.contents : "");
-        if (png.startsWith("\x89PNG\r\n\x1a\n") && png.size() < 6 * 1024 * 1024)
-            result.append({toQt(signature.rect), png});
+        const QString id = QString::fromUtf8(data.id);
+        if (!id.isEmpty() && !fz_is_empty_rect(data.rect) && !fz_is_infinite_rect(data.rect))
+            result.append({toQt(data.rect), {}, id});
     }
     return result;
 }
@@ -460,7 +494,7 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
         std::memcpy(options.upwd_utf8, secret.constData(), secret.size() + 1);
         std::memcpy(options.opwd_utf8, secret.constData(), secret.size() + 1);
     }
-    const QByteArray saveName = QFile::encodeName(savePath);
+    const QByteArray saveName = savePath.toUtf8();
     mupdf::call(copy->ctx_, [&]() noexcept {
         pdf_save_document(copy->ctx_, copy->doc_, saveName.constData(), &options);
     });
@@ -495,7 +529,7 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
 void PdfDocument::openBuffered(const QString &path, const QString &password)
 {
     auto next = mupdf::own(ctx_, static_cast<pdf_document *>(nullptr), pdf_drop_document);
-    const QByteArray name = QFile::encodeName(path);
+    const QByteArray name = path.toUtf8();
     QByteArray secret = password.toUtf8();
     try {
         auto buffer = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
@@ -643,20 +677,63 @@ void PdfDocument::applyAnnotations(const DocumentAnnotations &annotations,
         auto page = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
             return pdf_load_page(ctx_, doc_, it.key());
         }), pdf_drop_page);
+        QSet<QString> retained;
+        bool hasNewImages = false;
+        for (const auto &signature : it.value()) {
+            if (!signature.id.isEmpty()) retained.insert(signature.id);
+            else if (!signature.png.isEmpty()) hasNewImages = true;
+        }
+        auto streams = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+            return pdf_new_array(ctx_, doc_, 4);
+        }), pdf_drop_obj);
+        pdf_obj *original = mupdf::call(ctx_, [&]() noexcept {
+            return pdf_dict_get(ctx_, page->obj, PDF_NAME(Contents));
+        });
+        const int count = mupdf::call(ctx_, [&]() noexcept {
+            return pdf_is_array(ctx_, original) ? pdf_array_len(ctx_, original) : 1;
+        });
+        for (int i = 0; i < count; ++i) {
+            pdf_obj *stream = mupdf::call(ctx_, [&]() noexcept {
+                return pdf_is_array(ctx_, original) ? pdf_array_get(ctx_, original, i) : original;
+            });
+            const char *id = mupdf::call(ctx_, [&]() noexcept {
+                return pdf_to_text_string(ctx_, pdf_dict_gets(ctx_, stream, signatureIdKey));
+            });
+            if (stream && (!id || !*id || retained.contains(QString::fromUtf8(id))))
+                mupdf::call(ctx_, [&]() noexcept { pdf_array_push(ctx_, streams.get(), stream); });
+        }
+        mupdf::call(ctx_, [&]() noexcept { pdf_dict_put(ctx_, page->obj, PDF_NAME(Contents), streams.get()); });
+        if (!hasNewImages) continue;
+        // Work in page coordinates (including CropBox/Rotate/UserUnit), with
+        // page-local resources so inherited resources are not replaced.
+        auto resources = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+            pdf_obj *existing = pdf_page_resources(ctx_, page.get());
+            return existing ? pdf_deep_copy_obj(ctx_, existing) : pdf_new_dict(ctx_, doc_, 4);
+        }), pdf_drop_obj);
+        // Isolate the original graphics state once. Each signature then has its
+        // own balanced stream, so removing one cannot affect other content.
+        auto prefix = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+            return fz_new_buffer_from_copied_data(ctx_, reinterpret_cast<const unsigned char *>("q\n"), 2);
+        }), fz_drop_buffer);
+        auto suffix = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+            return fz_new_buffer_from_copied_data(ctx_, reinterpret_cast<const unsigned char *>("Q\n"), 2);
+        }), fz_drop_buffer);
         mupdf::call(ctx_, [&]() noexcept {
-            for (pdf_annot *annot = pdf_first_annot(ctx_, page.get()); annot;) {
-                pdf_annot *next = pdf_next_annot(ctx_, annot);
-                const char *author = pdf_annot_author(ctx_, annot);
-                const char *subject = pdf_annot_subject(ctx_, annot);
-                if (pdf_annot_type(ctx_, annot) == PDF_ANNOT_STAMP && isOwned(author) &&
-                    matches(subject, signatureSubject))
-                    pdf_delete_annot(ctx_, page.get(), annot);
-                annot = next;
-            }
+            pdf_array_insert_drop(ctx_, streams.get(), pdf_add_stream(ctx_, doc_, prefix.get(), nullptr, 0), 0);
+            pdf_array_push_drop(ctx_, streams.get(), pdf_add_stream(ctx_, doc_, suffix.get(), nullptr, 0));
         });
         for (const Signature &signature : it.value()) {
-            if (signature.png.isEmpty()) continue;
-            const QByteArray encoded = signature.png.toBase64();
+            if (!signature.id.isEmpty() || signature.png.isEmpty()) continue;
+            auto contents = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+                return fz_new_buffer(ctx_, 256);
+            }), fz_drop_buffer);
+            mupdf::call(ctx_, [&]() noexcept { fz_append_string(ctx_, contents.get(), "q\n"); });
+            auto device = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+                fz_rect mediabox;
+                fz_matrix transform;
+                pdf_page_transform(ctx_, page.get(), &mediabox, &transform);
+                return pdf_new_pdf_device(ctx_, doc_, fz_invert_matrix(transform), resources.get(), contents.get());
+            }), fz_drop_device);
             const fz_rect rect = toPdf(signature.rect);
             auto buffer = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
                 return fz_new_buffer_from_copied_data(ctx_,
@@ -665,18 +742,27 @@ void PdfDocument::applyAnnotations(const DocumentAnnotations &annotations,
             auto image = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
                 return fz_new_image_from_buffer(ctx_, buffer.get());
             }), fz_drop_image);
-            auto annot = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
-                return pdf_create_annot(ctx_, page.get(), PDF_ANNOT_STAMP);
-            }), pdf_drop_annot);
             mupdf::call(ctx_, [&]() noexcept {
-                pdf_set_annot_rect(ctx_, annot.get(), rect);
-                pdf_set_annot_author(ctx_, annot.get(), owner);
-                pdf_set_annot_subject(ctx_, annot.get(), signatureSubject);
-                pdf_set_annot_contents(ctx_, annot.get(), encoded.constData());
-                pdf_set_annot_stamp_image(ctx_, annot.get(), image.get());
+                const fz_matrix placement = {rect.x1 - rect.x0, 0, 0, rect.y1 - rect.y0, rect.x0, rect.y0};
+                fz_fill_image(ctx_, device.get(), image.get(), placement, 1, fz_default_color_params);
+                fz_close_device(ctx_, device.get());
+                fz_append_string(ctx_, contents.get(), "Q\n");
+            });
+            auto stream = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+                return pdf_add_stream(ctx_, doc_, contents.get(), nullptr, 0);
+            }), pdf_drop_obj);
+            const QByteArray id = QUuid::createUuid().toString(QUuid::WithoutBraces).toUtf8();
+            mupdf::call(ctx_, [&]() noexcept {
+                pdf_dict_puts_drop(ctx_, stream.get(), signatureIdKey, pdf_new_text_string(ctx_, id.constData()));
+                pdf_dict_puts_drop(ctx_, stream.get(), signatureRectKey, pdf_new_rect(ctx_, doc_, rect));
+                pdf_array_push(ctx_, streams.get(), stream.get());
             });
         }
-        mupdf::call(ctx_, [&]() noexcept { pdf_update_page(ctx_, page.get()); });
+        mupdf::call(ctx_, [&]() noexcept {
+            pdf_dict_put(ctx_, page->obj, PDF_NAME(Resources), resources.get());
+            pdf_dict_put(ctx_, page->obj, PDF_NAME(Contents), streams.get());
+            pdf_update_page(ctx_, page.get());
+        });
     }
     if (!signatureTemplate.isEmpty()) {
         const QByteArray encoded = signatureTemplate.toBase64();

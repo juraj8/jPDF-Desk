@@ -179,10 +179,11 @@ void signPdfSnapshot(fz_context *ctx, const QString &input, const QString &outpu
 {
     QTemporaryDir staging;
     if (!staging.isValid()) throw std::runtime_error("Cannot create temporary signing directory.");
-    const QByteArray inputName = QFile::encodeName(input);
+    // MuPDF's filename APIs take UTF-8 on every platform.
+    const QByteArray inputName = input.toUtf8();
     const QByteArray password = documentPassword.toUtf8();
     const QString signedPath = staging.filePath("signed.pdf");
-    const QByteArray outputName = QFile::encodeName(signedPath);
+    const QByteArray outputName = signedPath.toUtf8();
     // Invoke providers outside fz_try: a C++ exception must not bypass MuPDF's
     // exception-stack cleanup. No PDF resources have been acquired yet.
     {
@@ -226,7 +227,7 @@ QVector<DigitalSignatureStatus> verifySavedPdf(fz_context *ctx, const QString &p
                                               const jpdf::crypto::ValidationTime &time)
 {
     QVector<DigitalSignatureStatus> results;
-    const QByteArray filename = QFile::encodeName(path);
+    const QByteArray filename = path.toUtf8();
     const QByteArray password = documentPassword.toUtf8();
     // Providers and all Qt allocations run outside MuPDF longjmp boundaries.
     auto verifier = mupdf::own(ctx, provider.createVerifier(ctx), pdf_drop_verifier);

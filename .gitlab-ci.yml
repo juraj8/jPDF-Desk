@@ -112,30 +112,17 @@ linux_packages:
 windows_packages:
   extends: .cmake_job
   stage: build
+  parallel:
+    matrix:
+      - CMAKE_PRESET: [release-windows, release-windows-static]
   script:
-    - |
-      set -eu
-      apt-get install -y --no-install-recommends mingw-w64 mingw-w64-tools nsis
-      # QT_HOST_PATH in the MinGW presets points to this native build.
-      cmake --preset release-linux --fresh
-      cmake --build --preset release-linux --target jpdf-desk --parallel "$BUILD_JOBS"
-      # Windows-target OpenSSL is not available in the Debian image. These
-      # packages support editing/printing, but not cryptographic signing.
-      cmake --preset release-windows --fresh -DJPDF_DESK_WITH_OPENSSL=OFF -DBUILD_TESTING=ON
-      cmake --build --preset release-windows --parallel "$BUILD_JOBS"
-      # Compile Windows tests; execution requires a Windows runner or emulation.
-      cmake --build .build/release-windows --parallel "$BUILD_JOBS"
-      cpack --preset release-windows-installer
-      mkdir -p dist/windows-x86_64
-      test -s .build/release-windows/gui/jpdf-desk.exe
-      cp .build/release-windows/gui/jpdf-desk.exe dist/windows-x86_64/
-      cp .build/release-windows/packages/*.exe dist/windows-x86_64/
-      (cd dist/windows-x86_64 && sha256sum * > SHA256SUMS)
+    - apt-get install -y --no-install-recommends mingw-w64 mingw-w64-tools nsis
+    - bash script/ci-build.sh "$CMAKE_PRESET"
   artifacts:
-    name: "$CI_PROJECT_NAME-windows-x86_64-$CI_COMMIT_REF_SLUG"
+    name: "$CI_PROJECT_NAME-$CMAKE_PRESET-$CI_COMMIT_REF_SLUG"
     expire_in: 1 month
     paths:
-      - dist/windows-x86_64/
+      - dist/$CMAKE_PRESET/
 
 # Opt in with BUILD_SNAP=1 on a shell runner with Snapcraft and LXD installed.
 snap_packages:

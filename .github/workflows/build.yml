@@ -234,7 +234,7 @@ jobs:
           set -euo pipefail
           mkdir release-assets
           output="$PWD/release-assets"
-          # Keep each build and its own SHA256SUMS together: filenames overlap.
+          # Verify downloaded artifacts before preparing public release assets.
           for preset in linux-appimage linux-deb linux-rpm linux-static linux-arm64 windows windows-static mac-arm64 linux-snap; do
             directory="artifacts/release-$preset"
             test -s "$directory/SHA256SUMS"
@@ -243,9 +243,22 @@ jobs:
             if [[ "$preset" == linux* ]]; then
               find "$directory" -type f \( -name jpdf-desk -o -name '*.AppImage' \) -exec chmod +x {} +
             fi
-            (cd "$directory" && zip -r "$output/jpdf-desk-$RELEASE_TAG-$preset.zip" .)
+            case "$preset" in
+              linux-static|linux-arm64)
+                tar -czf "$output/jpdf-desk-$RELEASE_TAG-$preset.tar.gz" -C "$directory" jpdf-desk
+                ;;
+              windows-static)
+                (cd "$directory" && zip "$output/jpdf-desk-$RELEASE_TAG-$preset.zip" jpdf-desk.exe)
+                ;;
+              linux-appimage) cp "$directory"/*.AppImage "$output/" ;;
+              linux-deb) cp "$directory"/*.deb "$output/" ;;
+              linux-rpm) cp "$directory"/*.rpm "$output/" ;;
+              windows) cp "$directory"/*.exe "$output/" ;;
+              mac-arm64) cp "$directory"/*.tar.gz "$output/" ;;
+              linux-snap) cp "$directory"/*.snap "$output/" ;;
+            esac
           done
-          (cd release-assets && sha256sum *.zip > SHA256SUMS)
+          (cd release-assets && sha256sum ./* > SHA256SUMS)
       - name: Publish GitHub Release assets
         shell: bash
         run: |

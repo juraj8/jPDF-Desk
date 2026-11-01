@@ -109,8 +109,8 @@ int main(int argc, char **argv)
         return 5;
     }
     if (pdf.path() != output || pdf.fields(0).size() != 1) return 6;
-    if (pdf.signatures(0).size() != 1 || pdf.signatures(0).first().png != png
-        || pdf.signatureTemplate() != png) return 28;
+    if (pdf.signatures(0).size() != 1 || pdf.signatures(0).first().id.isEmpty()
+        || !pdf.signatures(0).first().png.isEmpty() || pdf.signatureTemplate() != png) return 28;
     const auto statuses = pdf.checkDigitalSignatures();
     if (statuses.size() != 1 || !statuses[0].signedField || !statuses[0].digestValid ||
         statuses[0].certificateTrusted || statuses[0].changedSinceSigning ||

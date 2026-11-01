@@ -47,6 +47,8 @@ jpdf_desk_add_test(signature-services test_signature_services.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
 jpdf_desk_add_test(document-annotations test_document_annotations.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
+jpdf_desk_add_test(signature-page-content test_signature_page_content.cpp
+    LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
 jpdf_desk_add_test(mupdf-errors test_mupdf_errors.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
 jpdf_desk_add_test(image-loading test_image_loading.cpp
@@ -66,6 +68,7 @@ jpdf_desk_add_test(document-dialogs test_document_dialogs.cpp WIDGETS)
 jpdf_desk_add_test(forms test_forms.cpp WIDGETS)
 jpdf_desk_add_test(pdf-tasks test_pdf_tasks.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(outline test_outline.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
+jpdf_desk_add_test(links test_links.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(search test_search.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(page-controls test_page_controls.cpp WIDGETS)
 jpdf_desk_add_test(password test_password.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)

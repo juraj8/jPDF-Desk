@@ -4,18 +4,26 @@
 
 #include <QGraphicsPixmapItem>
 
-// A movable, scalable image; keep the PNG on each item so replacing the template
-// does not alter signatures already placed on other pages.
+// New images are movable/scalable. Saved images are selection-only overlays;
+// their pixels are already in the page and only removal is supported.
 class SignatureItem : public QGraphicsPixmapItem {
 public:
     enum { Type = QGraphicsItem::UserType + 3 };
     int type() const override { return Type; }
     explicit SignatureItem(const Signature &signature);
     Signature signature() const;
-    int width() const { return qRound(pixmap().deviceIndependentSize().width() * scale()); }
+    bool isSaved() const { return !id_.isEmpty(); }
+    int width() const
+    {
+        return qRound((isSaved() ? savedSize_.width() : pixmap().deviceIndependentSize().width()) * scale());
+    }
+    QRectF boundingRect() const override;
+    QPainterPath shape() const override;
     void setWidth(int width);
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
 private:
     QByteArray png_;
+    QString id_;
+    QSizeF savedSize_;
 };

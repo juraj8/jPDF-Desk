@@ -61,6 +61,7 @@ public:
     // Applies to the next saved copy; an empty password removes encryption.
     void setPassword(const QString &password);
     QVector<OutlineEntry> outline() const;
+    QVector<PdfPageLink> links(int page) const;
     QVector<PdfFormField> formFields(int page) const;
     // Atomically apply supported native field values to the in-memory document.
     // Saved/printed snapshots include them; no JavaScript actions are executed.

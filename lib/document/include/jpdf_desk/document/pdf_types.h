@@ -27,7 +27,8 @@ struct OptionMark {
 
 struct Signature {
     QRectF rect; // Scene coordinates.
-    QByteArray png; // Cropped transparent PNG, stored with its stamp annotation.
+    QByteArray png; // Cropped transparent PNG for a new, unsaved image.
+    QString id; // Saved page-content stream ID; removal only, no PNG copy.
 };
 
 struct PageAnnotations {
@@ -41,6 +42,13 @@ struct DocumentAnnotations {
     QMap<int, QVector<TextField>> fields;
     QMap<int, QVector<OptionMark>> marks;
     QMap<int, QVector<Signature>> signatures;
+};
+
+// Internal navigation only; coordinates use the same scene units as annotations.
+struct PdfPageLink {
+    QRectF rect;
+    int page = -1;
+    QPointF position;
 };
 
 // Native AcroForm fields, separate from application-owned annotations.

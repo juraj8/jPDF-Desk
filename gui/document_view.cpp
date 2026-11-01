@@ -11,12 +11,47 @@
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
+#include <QGraphicsSceneMouseEvent>
+#include <QApplication>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <exception>
+
+namespace {
+// Kept below editable annotations in sibling stacking order.
+class PageLinkItem : public QGraphicsRectItem {
+public:
+    PageLinkItem(const QRectF &rect, QGraphicsItem *parent, std::function<void()> activate)
+        : QGraphicsRectItem(rect, parent), activate_(std::move(activate))
+    {
+        setPen(Qt::NoPen);
+        setBrush(Qt::NoBrush);
+        setCursor(Qt::PointingHandCursor);
+        setAcceptedMouseButtons(Qt::LeftButton);
+    }
+
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override
+    {
+        press_ = event->screenPos();
+        event->accept();
+    }
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override
+    {
+        if (rect().contains(event->pos()) &&
+            (event->screenPos() - press_).manhattanLength() < QApplication::startDragDistance())
+            activate_();
+        event->accept();
+    }
+
+private:
+    std::function<void()> activate_;
+    QPoint press_;
+};
+}
 
 DocumentView::DocumentView(PdfDocument &document, QWidget *parent)
     : QGraphicsView(parent), pdf_(document), scene_(new QGraphicsScene(this))
@@ -34,17 +69,26 @@ DocumentView::DocumentView(PdfDocument &document, QWidget *parent)
             updateTextTools();
         });
     connect(textTools_->removeButton(), &QPushButton::clicked, this, [this] {
-        for (QGraphicsItem *item : scene_->selectedItems())
+        bool removedSavedImage = false;
+        for (QGraphicsItem *item : scene_->selectedItems()) {
+            if (auto *signature = qgraphicsitem_cast<SignatureItem *>(item))
+                removedSavedImage |= signature->isSaved();
             if (isAnnotation(item)) delete item;
+        }
+        if (removedSavedImage) {
+            for (auto &page : pages_) page.resolution = 0;
+            refreshPageImages();
+        }
     });
     connect(scene_, &QGraphicsScene::selectionChanged, this, [this] {
         const auto selection = scene_->selectedItems();
         if (!selection.isEmpty()) {
             const bool text = selection.first()->type() == EditableText::Type;
-            const bool signature = selection.first()->type() == SignatureItem::Type;
+            const auto *signature = qgraphicsitem_cast<SignatureItem *>(selection.first());
+            const bool resizableSignature = signature && !signature->isSaved();
             if (isAnnotation(selection.first()))
-                textTools_->setSelectionType(text, signature);
-            if (text || signature) {
+                textTools_->setSelectionType(text, resizableSignature);
+            if (text || resizableSignature) {
                 QSignalBlocker blocker(textTools_->widthControl());
                 const qreal width = text
                     ? static_cast<EditableText *>(selection.first())->textWidth()
@@ -264,7 +308,19 @@ void DocumentView::refreshPageImages()
                 continue;
             }
             if (qAbs(page.resolution - resolution) < 0.0001) continue;
-            const QImage image = pdf_.render(i, resolution);
+            // Saved signatures are pixels in the background, not image overlays.
+            // Preview removals on a snapshot without mutating the live document.
+            QVector<Signature> retained;
+            for (const auto &signature : captureAnnotations(*scene_, page.root).signatures)
+                if (!signature.id.isEmpty()) retained.append(signature);
+            QImage image;
+            if (retained.size() != pdf_.signatures(i).size()) {
+                DocumentAnnotations removals;
+                removals.signatures[i] = retained;
+                image = pdf_.snapshot(removals)->render(i, resolution);
+            } else {
+                image = pdf_.render(i, resolution);
+            }
             page.image->setPixmap(QPixmap::fromImage(image));
             const QRectF rect = page.root->rect();
             page.image->setTransform(QTransform::fromScale(rect.width() / image.width(),
@@ -321,6 +377,28 @@ void DocumentView::showDocument(bool resetPage, const LoadedPdf *loaded)
                 resolution = loaded->resolution;
             }
             pages_.append({root, image, resolution});
+            // Broken link metadata must not prevent displaying/editing the page.
+            try {
+                for (const auto &link : pdf_.links(i)) {
+                    new PageLinkItem(link.rect, root, [this, link] {
+                        if (link.page < 0 || link.page >= pages_.size()) return;
+                        const auto *target = pages_[link.page].root;
+                        const QRectF rect = target->rect();
+                        const QPointF position(qBound(rect.left(), link.position.x(), rect.right()),
+                                               qBound(rect.top(), link.position.y(), rect.bottom()));
+                        const QPointF point = target->mapToScene(position);
+                        // Put the destination section at the top, keeping zoom unchanged.
+                        centerOn(target->sceneBoundingRect().center().x(),
+                                 point.y() + viewport()->height() / (2 * transform().m22()));
+                        ensureVisible(QRectF(point, QSizeF(1, 1)), 0, 0);
+                        updateCurrentPage();
+                        refreshPageImages();
+                        updateTextTools();
+                    });
+                }
+            } catch (const std::exception &) {
+                // Ignore malformed/unsupported navigation metadata.
+            }
             const auto annotations = loaded ? loaded->pages[i].annotations
                 : PageAnnotations{pdf_.fields(i), pdf_.marks(i), pdf_.signatures(i)};
             addAnnotations(*scene_, annotations, root);

@@ -519,8 +519,8 @@ static int runTest(int argc, char **argv)
     PdfDocument signedDocument;
     signedDocument.open(signaturePath);
     const auto signatures = signedDocument.signatures(0);
-    if (signedDocument.signatureTemplate() != png || signatures.size() != 1 ||
-        signatures[0].png != png || std::abs(signatures[0].rect.x() - 100) > 2) return 35;
+    if (signedDocument.signatureTemplate() != png || signatures.size() != 1
+        || signatures[0].id.isEmpty() || !signatures[0].png.isEmpty()) return 35;
     fz_context *signatureCtx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     pdf_document *signatureDoc = pdf_open_document(signatureCtx, QFile::encodeName(signaturePath).constData());
     pdf_page *signaturePage = pdf_load_page(signatureCtx, signatureDoc, 0);
@@ -594,7 +594,8 @@ static int runTest(int argc, char **argv)
     if (!previousButton || !nextButton || previousButton->isEnabled() || !nextButton->isEnabled()) return 48;
     for (auto *candidate : scene->items()) {
         if (auto *textItem = qgraphicsitem_cast<EditableText *>(candidate)) textItem->setPlainText(QStringLiteral("Unsaved"));
-        if (isAnnotation(candidate)) candidate->moveBy(15, 25);
+        if (isAnnotation(candidate) && candidate->type() != SignatureItem::Type)
+            candidate->moveBy(15, 25);
     }
     QGraphicsItem *firstRoot = nullptr;
     QGraphicsItem *secondRoot = nullptr;
@@ -634,8 +635,8 @@ static int runTest(int argc, char **argv)
         || continuousSaved.fields(1).size() != 1
         || std::abs(continuousSaved.marks(1).first().center.x() - 80) > 0.01
         || std::abs(continuousSaved.marks(1).first().center.y() - 90) > 0.01
-        || std::abs(continuousSaved.signatures(1).first().rect.x() - 100) > 0.01
-        || std::abs(continuousSaved.signatures(1).first().rect.y() - 200) > 0.01) return 81;
+        || continuousSaved.signatures(1).size() != 1
+        || continuousSaved.signatures(1).first().rect.topLeft() != QPointF(100, 200)) return 81;
     for (auto *candidate : secondRoot->childItems())
         if (isAnnotation(candidate)) delete candidate;
     view->verticalScrollBar()->setValue(view->verticalScrollBar()->minimum());
@@ -648,8 +649,8 @@ static int runTest(int argc, char **argv)
     const auto draft = captureAnnotations(*scene, firstRoot);
     if (draft.fields.size() != 1 || draft.fields[0].text != QStringLiteral("Unsaved") ||
         draft.fields[0].rect.topLeft() != QPointF(25, 45) || draft.marks.size() != 1 ||
-        draft.marks[0].center != QPointF(95, 115) || draft.signatures.size() != 1 ||
-        draft.signatures[0].png != png) return 50;
+        draft.marks[0].center != QPointF(95, 115) || draft.signatures.size() != 1
+        || draft.signatures[0].id.isEmpty() || !draft.signatures[0].png.isEmpty()) return 50;
     for (auto *candidate : scene->items())
         if (isAnnotation(candidate)) delete candidate;
     nextButton->click();

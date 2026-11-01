@@ -44,6 +44,15 @@ partial results without changing edits.
 Choose **Manage signature images…**, import dark ink on light paper, and choose
 **Use selected**. Click the **Signature** tool to place it.
 
+Signature images are saved as page content, not comments or stamp annotations.
+Position and resize them before saving. After reopening in jPDF Desk, they can
+be selected and removed, but not moved or resized. Save to apply removal to the
+PDF. Other PDF editors can still alter or extract the images. Removing an image
+covered by a digital signature invalidates that signature.
+
+Only images saved with jPDF Desk's removal tags support this workflow; older
+stamp-based or untagged images are not converted.
+
 **An image is not a digital signature.** Embedded images can be extracted even
 after visible signatures are deleted. The processed image is also embedded as
 a reusable template when saving.

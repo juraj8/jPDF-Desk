@@ -62,7 +62,7 @@ case "$preset" in
         ;;
     release-windows)
         cpack --preset release-windows-installer
-        cp "$build_dir"/packages/*.exe "$build_dir/gui/jpdf-desk.exe" "$output/"
+        cp "$build_dir"/packages/*.exe "$output/"
         ;;
     release-windows-static)
         cp "$build_dir/gui/jpdf-desk.exe" "$output/"

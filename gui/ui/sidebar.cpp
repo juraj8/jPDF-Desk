@@ -71,7 +71,7 @@ Sidebar::Sidebar(const QIcon &icon, QWidget *parent) : QFrame(parent)
     layout->addLayout(tools);
     layout->addSpacing(4);
     heading(tr("SIGN"));
-    auto *signatureHint = new QLabel(tr("Place an image if needed, then digitally sign. No intermediate save required."), this);
+    auto *signatureHint = new QLabel(tr("Position images before saving. Saved images can be removed, but not moved or resized. Digitally sign when finished."), this);
     signatureHint->setObjectName(QStringLiteral("signatureWorkflowHint"));
     signatureHint->setTextFormat(Qt::PlainText);
     signatureHint->setWordWrap(true);

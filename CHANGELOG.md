@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.3.0 — Unreleased
+
+### Added
+
+- Clickable internal PDF links, including named destinations, preserving zoom
+  and keeping editable annotations above link targets. External URLs and files
+  are not opened.
+- Regression coverage for internal links, signature-image page content and
+  removal previews, and Unicode PDF paths.
+
+### Changed
+
+- Save signature images as page content rather than stamp annotations. Position
+  and resize images before saving; saved, tagged images can be selected and
+  removed, but not moved or resized. Older stamps and untagged images are not
+  converted. Removing an image covered by a digital signature invalidates it.
+- Update signature-image workflow hints and documentation.
+- Publish native installers and packages directly as release assets, use
+  tarballs for Linux standalone builds and ZIP archives for Windows standalone
+  builds, and provide release checksums.
+- Build both Windows installer and standalone packages in GitLab CI using the
+  shared build script; omit the loose executable from installer artifacts.
+- Update MuPDF to include newer Brotli dependency fixes.
+
+### Fixed
+
+- Use UTF-8 paths for MuPDF file operations, fixing non-ASCII filenames and
+  directories on Windows when opening, saving, signing, and verifying PDFs.
+
 ## 1.2.0-rc1
 
 ### Added
