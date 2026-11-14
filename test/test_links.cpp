@@ -4,12 +4,19 @@
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
 #include <QApplication>
+#include <QDebug>
 #include <QFile>
 #include <QGraphicsScene>
 #include <QMouseEvent>
 #include <QTemporaryDir>
 
 namespace {
+int fail(int code, const char *message)
+{
+    qCritical("links test failed (%d): %s", code, message);
+    return code;
+}
+
 void makePdf(const QString &path)
 {
     auto *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
@@ -69,17 +76,17 @@ int main(int argc, char **argv)
     QApplication app(argc, argv);
     Q_INIT_RESOURCE(jpdf_desk_ui);
     QTemporaryDir dir;
-    if (!dir.isValid()) return 1;
+    if (!dir.isValid()) return fail(1, "Could not create temporary directory");
     const auto path = dir.filePath("links.pdf");
     makePdf(path);
     PdfDocument pdf;
-    if (!pdf.links(0).isEmpty()) return 2;
+    if (!pdf.links(0).isEmpty()) return fail(2, "Unopened document has links");
     pdf.open(path);
     const auto links = pdf.links(0);
     if (links.size() != 2 || links[0].page != 2 || links[1].page != 2 ||
         links[0].rect != QRectF(60, 90, 150, 60) ||
         links[0].position != QPointF(60, 450) || links[1].position != links[0].position ||
-        !pdf.links(1).isEmpty()) return 3;
+        !pdf.links(1).isEmpty()) return fail(3, "Unexpected link metadata");
 
     DocumentView view(pdf);
     view.resize(900, 500);
@@ -88,16 +95,25 @@ int main(int argc, char **argv)
     app.processEvents();
     const auto transform = view.transform();
     click(view, links[0].rect.center(), Qt::RightButton);
-    if (view.currentPage() != 0) return 4;
+    if (view.currentPage() != 0) return fail(4, "Right-click activated a link");
     click(view, links[0].rect.center(), Qt::LeftButton, QPoint(30, 0));
-    if (view.currentPage() != 0) return 5;
+    if (view.currentPage() != 0) return fail(5, "Drag activated a link");
     click(view, links[0].rect.center());
-    if (view.currentPage() != 2 || view.transform() != transform) return 6;
+    if (view.currentPage() != 2 || view.transform() != transform) {
+        qCritical() << "Current page:" << view.currentPage()
+                    << "transform:" << view.transform() << "expected:" << transform;
+        return fail(6, "Direct destination did not navigate while preserving zoom");
+    }
     // The XYZ destination is at the viewport top, not just the target page.
-    if (qAbs(view.mapToScene(QPoint(0, 0)).y() - (2 * 1224 + 450)) > 3) return 7;
+    const qreal destinationY = 2 * 1224 + 450;
+    const qreal viewportTop = view.mapToScene(QPoint(0, 0)).y();
+    if (qAbs(viewportTop - destinationY) > 3) {
+        qCritical() << "Viewport top:" << viewportTop << "expected:" << destinationY;
+        return fail(7, "XYZ destination is not at the viewport top");
+    }
     view.goToPage(0);
     click(view, links[1].rect.center());
-    if (view.currentPage() != 2) return 8;
+    if (view.currentPage() != 2) return fail(8, "Named destination did not navigate");
 
     view.goToPage(0);
     auto *text = new EditableText({links[0].rect, QStringLiteral("Editable overlay"), 12});
@@ -109,11 +125,12 @@ int main(int argc, char **argv)
         }
     }
     click(view, links[0].rect.center());
-    if (view.currentPage() != 0 || view.captureDrafts().fields[0].size() != 1) return 9;
+    if (view.currentPage() != 0 || view.captureDrafts().fields[0].size() != 1)
+        return fail(9, "Editable overlay did not take precedence over the link");
     pdf.save(dir.filePath("saved.pdf"), {});
-    if (pdf.links(0).size() != 2) return 10;
+    if (pdf.links(0).size() != 2) return fail(10, "Saving changed the links");
     view.showDocument(true);
     click(view, links[0].rect.center());
-    if (view.currentPage() != 2) return 11;
+    if (view.currentPage() != 2) return fail(11, "Link did not navigate after saving and rebuilding");
     return 0;
 }
