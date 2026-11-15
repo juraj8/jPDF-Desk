@@ -1,6 +1,13 @@
 # Changelog
 
-## 1.3.0 — Unreleased
+## 1.3.0-rc2 — 2026-11-14
+
+### Changed
+
+- Add detailed failure diagnostics to internal-link regression tests, including
+  navigation, zoom preservation, destination positioning, and editable overlays.
+
+## 1.3.0-rc1 — 2026-11-01
 
 ### Added
 
@@ -29,7 +36,20 @@
 - Use UTF-8 paths for MuPDF file operations, fixing non-ASCII filenames and
   directories on Windows when opening, saving, signing, and verifying PDFs.
 
-## 1.2.0-rc1
+## 1.2.0 — 2026-10-23
+
+- Promote 1.2.0-rc2 to the stable release with no additional code changes.
+
+## 1.2.0-rc2 — 2026-10-20
+
+### Changed
+
+- Publish Linux AppImage, DEB, and RPM packages as separate CI artifacts and
+  release archives, each with its own checksums.
+- Improve portability of drag-and-drop and validation-clock UI tests, accounting
+  for macOS message-box titles and checking retry-error content.
+
+## 1.2.0-rc1 — 2026-10-17
 
 ### Added
 
@@ -59,10 +79,6 @@
   expandable storage/privacy information.
 - Allow resizing text-box widths as well as signature images.
 - Keep page thumbnails and captions centered as the viewport changes size.
-- Publish Linux AppImage, DEB, and RPM packages as separate CI artifacts and
-  release archives, each with its own checksums.
-- Improve portability of drag-and-drop and validation-clock UI tests, accounting
-  for macOS message-box titles and checking retry-error content.
 
 ## 1.1.0-rc5 — 2026-10-11
 

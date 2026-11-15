@@ -11,6 +11,8 @@
 #include <QGraphicsScene>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QTimer>
 #include <QPushButton>
 #include <QTemporaryDir>
 
@@ -110,7 +112,11 @@ int main(int argc, char **argv)
     if (!count->text().isEmpty() || previous->isEnabled()) return 17;
     query->setText("hello");
     query->returnPressed();
-    window.openDocument(path); // Successful document replacement discards old results.
+    QTimer::singleShot(0, [&] {
+        if (auto *prompt = window.findChild<QMessageBox *>(QStringLiteral("unsavedChangesDialog")))
+            prompt->done(QMessageBox::Discard);
+    });
+    window.openDocument(path); // Confirmed replacement discards drafts and old results.
     if (!highlights(scene).isEmpty() || next->isEnabled() || !count->text().isEmpty()) return 18;
     return 0;
 }

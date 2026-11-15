@@ -17,6 +17,7 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QMessageBox>
 #include <QUrl>
 #include <QLineEdit>
 #include <QPlainTextEdit>
@@ -538,6 +539,10 @@ static int runTest(int argc, char **argv)
     pdf_drop_document(signatureCtx, signatureDoc);
     fz_drop_context(signatureCtx);
     if (signatureInk < 30) return 37;
+    QTimer::singleShot(0, [&] {
+        if (auto *prompt = window.findChild<QMessageBox *>(QStringLiteral("unsavedChangesDialog")))
+            prompt->done(QMessageBox::Discard);
+    });
     window.openDocument(signaturePath);
     auto *placeSignature = window.findChild<QPushButton *>(QStringLiteral("placeSignatureButton"));
     if (!placeSignature || !placeSignature->isEnabled()) return 38;
@@ -562,7 +567,7 @@ static int runTest(int argc, char **argv)
     if (placed->sceneBoundingRect().width() <= oldWidth) return 40;
     remove->click();
     signedDocument.save(dir.filePath("unsigned.pdf"), {}, {}, {{0, {}}});
-    if (!signedDocument.signatures(0).isEmpty() || signedDocument.signatureTemplate() != png) return 36;
+    if (!signedDocument.signatures(0).isEmpty() || !signedDocument.signatureTemplate().isEmpty()) return 36;
 
     // Check alignment at the default font size as well as the larger size.
     PdfDocument small;

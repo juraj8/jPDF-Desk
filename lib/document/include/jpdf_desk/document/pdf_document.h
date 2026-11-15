@@ -46,6 +46,9 @@ public:
     std::unique_ptr<PdfDocument> snapshot(const DocumentAnnotations &annotations,
                                         const QByteArray &signatureTemplate = {}) const;
     // Saves publish atomically and adopt the output only after success.
+    // Reusable signature templates are removed unless PNG bytes are explicitly
+    // supplied here. Placed signature images are unaffected. snapshot() alone
+    // preserves an existing template for in-memory editing/printing.
     // Identity interpretation belongs to the injected provider, not the PDF library.
     void saveSnapshot(const QString &path, const DocumentAnnotations &annotations,
               const QByteArray &signatureTemplate = {}, const SigningIdentity &identity = {});
@@ -77,7 +80,8 @@ public:
     QVector<OptionMark> marks(int pageNumber) const;
     QVector<Signature> signatures(int pageNumber) const;
     QByteArray signatureTemplate() const;
-    // Verify the saved file, independently of edits in the in-memory document.
+    // Verify the saved file using an independent context. May run on a worker
+    // while the live document is rendered, provided its source/providers do not change.
     QVector<DigitalSignatureStatus> checkDigitalSignatures() const;
     bool canDigitallySign() const { return bool(signatureServices_.signing); }
     bool canVerifySignatures() const { return bool(signatureServices_.verification); }

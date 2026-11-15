@@ -47,6 +47,8 @@ jpdf_desk_add_test(signature-services test_signature_services.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
 jpdf_desk_add_test(document-annotations test_document_annotations.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
+jpdf_desk_add_test(document-rendering test_document_rendering.cpp
+    LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
 jpdf_desk_add_test(signature-page-content test_signature_page_content.cpp
     LIBRARIES jpdf-desk-document jpdf-desk-mupdf)
 jpdf_desk_add_test(mupdf-errors test_mupdf_errors.cpp
@@ -74,6 +76,8 @@ jpdf_desk_add_test(page-controls test_page_controls.cpp WIDGETS)
 jpdf_desk_add_test(password test_password.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(document-view test_document_view.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
 jpdf_desk_add_test(main-window test_main_window.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
+jpdf_desk_add_test(unsaved-changes test_unsaved_changes.cpp WIDGETS LIBRARIES jpdf-desk-mupdf)
+set_tests_properties(jpdf-desk.unsaved-changes PROPERTIES TIMEOUT 30)
 jpdf_desk_add_test(fileopen test_fileopen.cpp WIDGETS)
 jpdf_desk_add_test(pdf-file-diagnostics test_pdf_file_diagnostics.cpp
     LIBRARIES jpdf-desk-document)

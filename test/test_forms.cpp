@@ -10,6 +10,10 @@
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QGraphicsScene>
+#include <QGraphicsItem>
+#include "ui/page_annotations.h"
 #include <QPrinter>
 #include <QPushButton>
 #include <QTemporaryDir>
@@ -130,5 +134,17 @@ int main(int argc, char **argv)
     });
     button->click();
     if (!edited || view->captureDrafts().fields[0].size() != 1) return 14;
+    // Remove the annotation draft: a native-field-only change must still be
+    // protected by the main window's unsaved-change guard.
+    for (auto *item : view->scene()->items())
+        if (isAnnotation(item)) delete item;
+    bool prompted = false;
+    QTimer::singleShot(0, [&] {
+        auto *prompt = window.findChild<QMessageBox *>("unsavedChangesDialog");
+        if (!prompt) return;
+        prompted = true;
+        prompt->done(QMessageBox::Cancel);
+    });
+    if (view->hasUnsavedChanges() || window.close() || !prompted) return 15;
     return 0;
 }

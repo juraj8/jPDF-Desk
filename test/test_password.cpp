@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <cstring>
@@ -133,6 +134,10 @@ int main(int argc, char **argv)
     bool masked = true;
     QTimer timer;
     QObject::connect(&timer, &QTimer::timeout, [&] {
+        if (auto *prompt = window.findChild<QMessageBox *>("unsavedChangesDialog")) {
+            prompt->done(QMessageBox::Discard);
+            return;
+        }
         auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
         if (!dialog) return;
         masked = masked && dialog->textEchoMode() == QLineEdit::Password;

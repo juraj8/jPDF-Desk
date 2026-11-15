@@ -18,7 +18,10 @@ Sources live in `gui/`.
 Keep dialogs value-based, with changes applied through injected callbacks.
 Keep annotation conversion in `page_annotations` and shared dialog primitives
 in `dialog_helpers`. Saving and printing use `captureDrafts()`; empty page
-entries preserve deletions.
+entries preserve deletions. `DocumentView` compares normalized drafts with its
+post-load/save baseline; `MainWindow` separately tracks form, metadata and password
+changes. Replacement and close guards proceed only after a successful save or an
+explicit discard.
 
 ## Background work
 
@@ -29,7 +32,18 @@ between threads or create Qt pixmaps/graphics items off the GUI thread.
 Loading adopts an independent document only after success; failure or cancellation
 preserves the current document and drafts. Search uses an independent reader of
 the saved file, excluding unsaved edits. Never persist or log its credentials.
-Cancellation is cooperative between page operations.
+Cancellation is cooperative between page operations. Offline signature verification
+also uses a worker, with an independent MuPDF context; cancellation discards its
+results after the current verification finishes.
+
+Signature-removal previews share one cached snapshot across pages. Rebuild it when
+the retained signatures change or native form values change, not on every zoom or
+scroll. Screen raster dimensions and pixel counts are bounded before allocation.
+
+Rendering, saving and native print jobs still run synchronously. Native form edits
+retain full-document transactional copies for rollback safety. Further performance
+work should introduce explicit worker ownership and measure large-document costs,
+not move a borrowed live context to another thread or drop atomic edit semantics.
 
 ## Styling and tests
 

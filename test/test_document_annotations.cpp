@@ -108,6 +108,19 @@ int main(int argc, char **argv)
     PdfDocument retry;
     retry.open(directory.filePath("retry.pdf"), "pending-secret");
     if (retry.fields(0).size() != 1 || retry.metadata().value("Title") != "Pending metadata") return 15;
+    // In-memory snapshots preserve metadata, but ordinary exports strip the
+    // reusable PNG even when no page edits were requested. Placed images stay.
+    PdfDocument privacy;
+    privacy.open(annotated);
+    if (privacy.snapshot({})->signatureTemplate() != png) return 16;
+    privacy.saveSnapshot(directory.filePath("private-export.pdf"), {});
+    if (!privacy.signatureTemplate().isEmpty() || privacy.signatures(0).size() != 1 ||
+        privacy.fields(0).size() != 1 || privacy.marks(0).size() != 2) return 17;
+    // Explicit template bytes remain an opt-in for callers needing portability.
+    privacy.saveSnapshot(directory.filePath("opt-in-template.pdf"), {}, png);
+    if (privacy.signatureTemplate() != png) return 18;
+    privacy.saveSnapshot(directory.filePath("cleared-template.pdf"), {}, QByteArray());
+    if (!privacy.signatureTemplate().isEmpty()) return 19;
     // Deletions must remove annotations owned by the application.
     document.open(annotated);
     document.saveSnapshot(directory.filePath("deleted.pdf"), {{{0, {}}}, {{0, {}}}, {{0, {}}}});

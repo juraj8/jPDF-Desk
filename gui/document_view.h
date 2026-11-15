@@ -22,6 +22,7 @@ public:
     void refreshFormValues();
     int currentPage() const { return page_; }
     DocumentAnnotations captureDrafts() const;
+    bool hasUnsavedChanges() const;
     void navigatePage(int offset);
     void goToPage(int page);
     void addText();
@@ -52,8 +53,13 @@ private:
         QGraphicsRectItem *root;
         QGraphicsPixmapItem *image;
         qreal resolution = 0;
+        int savedSignatureCount = 0;
     };
     QVector<PageView> pages_;
+    DocumentAnnotations savedDrafts_;
+    // A single removal preview is reused across pages and zoom/scroll updates.
+    std::unique_ptr<PdfDocument> removalPreview_;
+    QMap<int, QVector<Signature>> previewSignatures_;
     bool rebuilding_ = false;
     bool dark_ = false;
     int page_ = 0;

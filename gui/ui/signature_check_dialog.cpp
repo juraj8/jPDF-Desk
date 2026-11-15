@@ -1,5 +1,6 @@
 #include "ui/signature_check_dialog.h"
 #include "ui/dialog_helpers.h"
+#include "jpdf_desk/document/pdf_document.h"
 
 #include <QFormLayout>
 #include <QGroupBox>
@@ -145,6 +146,8 @@ SignatureCheckDialog::SignatureCheckDialog(const QVector<DigitalSignatureStatus>
             }
             signatures_ = std::move(checked);
             refreshCards();
+        } catch (const PdfOperationCancelled &) {
+            // Keep the previous report when the user cancels a recheck.
         } catch (const std::exception &error) {
             QMessageBox::warning(this, tr("Cannot recheck signatures"), QString::fromUtf8(error.what()));
         }

@@ -77,7 +77,9 @@ int main(int argc, char **argv)
     auto *secondImage = pageImage(view, 1);
     if (!firstImage || !secondImage || firstImage->pixmap().isNull()
         || !secondImage->pixmap().isNull()) return 4;
+    if (view.hasUnsavedChanges()) return 23;
     view.addText();
+    if (!view.hasUnsavedChanges()) return 24;
     auto *text = qgraphicsitem_cast<EditableText *>(view.scene()->selectedItems().first());
     if (!text) return 5;
     text->setPlainText(QStringLiteral("Unsaved draft"));
@@ -114,7 +116,9 @@ int main(int argc, char **argv)
         || !draft.signatures[1].isEmpty()) return 10;
     view.findText(QStringLiteral("absent"));
     if (searchIndex != -1 || searchCount != 0) return 11;
+    if (view.hasUnsavedChanges()) return 25; // Added then deleted every draft.
     view.showDocument();
+    if (view.hasUnsavedChanges()) return 26;
     if (view.currentPage() != 1 || searchIndex != -1 || searchCount != -1) return 12;
     view.showDocument(true);
     view.resize(700, 1600);
@@ -157,7 +161,12 @@ int main(int argc, char **argv)
     view.goToPage(1);
     view.goToPage(0);
     app.processEvents();
-    if (pixel() != QColor(Qt::white)) return 21;
+    if (pixel() != QColor(Qt::white) || !view.hasUnsavedChanges()) return 21;
+    // Zooming reuses the removal snapshot and keeps the live PDF unchanged.
+    view.findChild<QPushButton *>(QStringLiteral("zoomInButton"))->click();
+    if (pixel() != QColor(Qt::white) || pdf.signatures(0).size() != 1) return 27;
+    view.refreshFormValues(); // Must invalidate any cached removal snapshot.
+    if (pixel() != QColor(Qt::white)) return 28;
     pdf.saveSnapshot(dir.filePath("removed.pdf"), view.captureDrafts());
     if (!pdf.signatures(0).isEmpty() || pdf.render(0).pixelColor(80, 100) != QColor(Qt::white)) return 22;
     // Destruction with a live selection must not access deleted overlays.

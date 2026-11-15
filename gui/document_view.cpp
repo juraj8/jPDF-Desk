@@ -184,6 +184,11 @@ DocumentAnnotations DocumentView::captureDrafts() const
     return snapshot;
 }
 
+bool DocumentView::hasUnsavedChanges() const
+{
+    return !(captureDrafts() == savedDrafts_);
+}
+
 void DocumentView::clearSearch()
 {
     for (auto *highlight : searchHighlights_) delete highlight;
@@ -289,6 +294,7 @@ QPointF DocumentView::insertionPoint() const
 void DocumentView::refreshFormValues()
 {
     clearSearch();
+    removalPreview_.reset();
     for (auto &page : pages_) page.resolution = 0;
     refreshPageImages();
 }
@@ -299,6 +305,23 @@ void DocumentView::refreshPageImages()
     try {
         const qreal resolution = qMax(qreal(1), transform().m11() * devicePixelRatioF());
         const QRectF visible = mapToScene(viewport()->rect()).boundingRect();
+        DocumentAnnotations removals;
+        for (int i = 0; i < pages_.size(); ++i) {
+            if (!pages_[i].savedSignatureCount) continue;
+            QVector<Signature> retained;
+            for (const auto *item : pages_[i].root->childItems())
+                if (const auto *signature = qgraphicsitem_cast<const SignatureItem *>(item))
+                    if (signature->isSaved()) retained.append(signature->signature());
+            if (retained.size() != pages_[i].savedSignatureCount)
+                removals.signatures.insert(i, retained);
+        }
+        if (removals.signatures != previewSignatures_ ||
+            (!removals.signatures.isEmpty() && !removalPreview_)) {
+            auto preview = removals.signatures.isEmpty() ? nullptr : pdf_.snapshot(removals);
+            removalPreview_ = std::move(preview);
+            previewSignatures_ = removals.signatures;
+            for (auto &page : pages_) page.resolution = 0;
+        }
         for (int i = 0; i < pages_.size(); ++i) {
             auto &page = pages_[i];
             if (!page.root->sceneBoundingRect().intersects(visible)) {
@@ -308,19 +331,9 @@ void DocumentView::refreshPageImages()
                 continue;
             }
             if (qAbs(page.resolution - resolution) < 0.0001) continue;
-            // Saved signatures are pixels in the background, not image overlays.
-            // Preview removals on a snapshot without mutating the live document.
-            QVector<Signature> retained;
-            for (const auto &signature : captureAnnotations(*scene_, page.root).signatures)
-                if (!signature.id.isEmpty()) retained.append(signature);
-            QImage image;
-            if (retained.size() != pdf_.signatures(i).size()) {
-                DocumentAnnotations removals;
-                removals.signatures[i] = retained;
-                image = pdf_.snapshot(removals)->render(i, resolution);
-            } else {
-                image = pdf_.render(i, resolution);
-            }
+            // Saved signatures are background pixels. The cached snapshot
+            // previews all removals without mutating the live document.
+            const QImage image = (removalPreview_ ? *removalPreview_ : pdf_).render(i, resolution);
             page.image->setPixmap(QPixmap::fromImage(image));
             const QRectF rect = page.root->rect();
             page.image->setTransform(QTransform::fromScale(rect.width() / image.width(),
@@ -336,6 +349,9 @@ void DocumentView::showDocument(bool resetPage, const LoadedPdf *loaded)
 {
     clearSearch();
     rebuilding_ = true;
+    removalPreview_.reset();
+    previewSignatures_.clear();
+    savedDrafts_ = {};
     if (resetPage) page_ = 0;
     pages_.clear();
     scene_->clear();
@@ -401,6 +417,7 @@ void DocumentView::showDocument(bool resetPage, const LoadedPdf *loaded)
             }
             const auto annotations = loaded ? loaded->pages[i].annotations
                 : PageAnnotations{pdf_.fields(i), pdf_.marks(i), pdf_.signatures(i)};
+            pages_.last().savedSignatureCount = annotations.signatures.size();
             addAnnotations(*scene_, annotations, root);
             width = qMax(width, size.width());
             y += size.height() + 24;
@@ -419,6 +436,9 @@ void DocumentView::showDocument(bool resetPage, const LoadedPdf *loaded)
     }
     updateCurrentPage();
     refreshPageImages();
+    // Compare normalized scene values, not PDF rectangles: text layout can
+    // change an annotation's captured height when it is first loaded.
+    savedDrafts_ = captureDrafts();
 }
 
 void DocumentView::addText()

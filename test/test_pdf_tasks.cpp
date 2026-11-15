@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QTemporaryDir>
 #include <QThread>
@@ -17,6 +18,22 @@
 #include <atomic>
 
 namespace {
+class TaskVerifier final : public VerificationProvider {
+public:
+    mutable std::atomic<bool> entered{false}, released{false};
+    mutable bool workerThread = false;
+    pdf_pkcs7_verifier *createVerifier(fz_context *) const override
+    {
+        workerThread = QThread::currentThread() != qApp->thread();
+        entered.store(true);
+        while (!released.load()) QThread::msleep(1);
+        auto *verifier = new pdf_pkcs7_verifier{};
+        verifier->drop = [](fz_context *, pdf_pkcs7_verifier *handle) { delete handle; };
+        return verifier;
+    }
+    QString trustDescription() const override { return QStringLiteral("Test trust policy"); }
+};
+
 void makePdf(const QString &path)
 {
     fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
@@ -124,7 +141,12 @@ int main(int argc, char **argv)
     auto *view = window.findChild<DocumentView *>();
     view->addText();
     const QString title = window.windowTitle();
-    QTimer::singleShot(0, cancelTask);
+    QTimer::singleShot(0, [&] {
+        if (auto *prompt = window.findChild<QMessageBox *>("unsavedChangesDialog")) {
+            prompt->done(QMessageBox::Discard);
+            QTimer::singleShot(0, cancelTask);
+        }
+    });
     window.openDocument(path);
     if (window.windowTitle() != title || view->captureDrafts().fields[0].size() != 1) return 11;
     auto *query = window.findChild<QLineEdit *>("searchQuery");
@@ -135,5 +157,35 @@ int main(int argc, char **argv)
     if (!count->text().isEmpty() || view->captureDrafts().fields[0].size() != 1) return 12;
     query->returnPressed();
     if (count->text() != "1 / 40") return 13; // No stale cancellation/results.
+
+    // Offline verification must leave the GUI event loop running, and cancel
+    // must not publish a new report. The fake verifier waits for a GUI event.
+    auto verifier = std::make_shared<TaskVerifier>();
+    MainWindow verificationWindow(nullptr, {{}, verifier});
+    verificationWindow.openDocument(path);
+    auto *verify = verificationWindow.findChild<QPushButton *>("verifySignaturesButton");
+    bool sawReport = false, cancel = false, sawCancellation = false;
+    QTimer verifyTimer;
+    QObject::connect(&verifyTimer, &QTimer::timeout, [&] {
+        auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        if (!dialog) return;
+        if (dialog->objectName() == "pdfTaskDialog" && verifier->entered.load()) {
+            if (cancel) { dialog->reject(); sawCancellation = true; }
+            verifier->released.store(true);
+        } else if (dialog->objectName() == "signatureCheckDialog") {
+            sawReport = true;
+            dialog->accept();
+        }
+    });
+    verifyTimer.start(1);
+    verify->click();
+    if (!sawReport || !verifier->workerThread) return 14;
+    verifier->entered.store(false);
+    verifier->released.store(false);
+    sawReport = false;
+    cancel = true;
+    verify->click();
+    verifyTimer.stop();
+    if (!sawCancellation || sawReport || !verifier->workerThread) return 15;
     return 0;
 }

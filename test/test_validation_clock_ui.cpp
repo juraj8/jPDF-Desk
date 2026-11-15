@@ -69,7 +69,8 @@ int main(int argc, char **argv)
     auto *button = window.findChild<QPushButton *>("verifySignaturesButton");
     if (!button || !button->isEnabled()) return 3;
     bool appropriateMessage = false;
-    QTimer::singleShot(0, [&] {
+    QTimer messageTimer;
+    QObject::connect(&messageTimer, &QTimer::timeout, [&] {
         auto *message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
         if (!message) return;
         appropriateMessage = hasExpectedTitle(*message, QStringLiteral("System clock appears incorrect"))
@@ -79,7 +80,9 @@ int main(int argc, char **argv)
             && !message->text().contains("Invalid signature");
         message->accept();
     });
+    messageTimer.start(5);
     button->click();
+    messageTimer.stop();
     if (!appropriateMessage) return 4;
 
     DigitalSignatureStatus blocked;

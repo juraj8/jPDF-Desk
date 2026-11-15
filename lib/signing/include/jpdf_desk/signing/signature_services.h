@@ -49,6 +49,8 @@ struct SignatureCertificateDetails {
     ValidatedCertificateChain signerChain;
 };
 
+// Verification may run on a worker thread. Implementations must not access
+// GUI objects and must keep per-operation mutable state in the returned handle.
 class VerificationProvider {
 public:
     virtual ~VerificationProvider() = default;

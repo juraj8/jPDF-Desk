@@ -18,17 +18,26 @@ struct TextField {
     QRectF rect;
     QString text;
     float fontSize = 12;
+
+    friend bool operator==(const TextField &a, const TextField &b)
+    { return a.rect == b.rect && a.text == b.text && a.fontSize == b.fontSize; }
 };
 
 struct OptionMark {
     enum Kind { Check, Cross } kind;
     QPointF center; // Scene coordinates, at the center of the option box.
+
+    friend bool operator==(const OptionMark &a, const OptionMark &b)
+    { return a.kind == b.kind && a.center == b.center; }
 };
 
 struct Signature {
     QRectF rect; // Scene coordinates.
     QByteArray png; // Cropped transparent PNG for a new, unsaved image.
     QString id; // Saved page-content stream ID; removal only, no PNG copy.
+
+    friend bool operator==(const Signature &a, const Signature &b)
+    { return a.rect == b.rect && a.png == b.png && a.id == b.id; }
 };
 
 struct PageAnnotations {
@@ -42,6 +51,9 @@ struct DocumentAnnotations {
     QMap<int, QVector<TextField>> fields;
     QMap<int, QVector<OptionMark>> marks;
     QMap<int, QVector<Signature>> signatures;
+
+    friend bool operator==(const DocumentAnnotations &a, const DocumentAnnotations &b)
+    { return a.fields == b.fields && a.marks == b.marks && a.signatures == b.signatures; }
 };
 
 // Internal navigation only; coordinates use the same scene units as annotations.

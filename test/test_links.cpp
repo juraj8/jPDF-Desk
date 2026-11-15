@@ -124,8 +124,16 @@ int main(int argc, char **argv)
             break;
         }
     }
-    click(view, links[0].rect.center());
-    if (view.currentPage() != 0 || view.captureDrafts().fields[0].size() != 1)
+    // The link's center can be below the text hit area on platforms with
+    // shorter font metrics. Click inside the actual text shape instead.
+    const QPointF overlayPoint = text->mapToScene(text->shape().boundingRect().center());
+    const QPointF hitPoint = view.mapToScene(view.mapFromScene(overlayPoint));
+    if (text->scene() != view.scene() || !links[0].rect.contains(hitPoint) ||
+        !text->contains(text->mapFromScene(hitPoint)))
+        return fail(9, "Test click is not inside both the editable overlay and the link");
+    click(view, overlayPoint);
+    if (view.currentPage() != 0 || !text->isSelected() ||
+        view.captureDrafts().fields[0].size() != 1)
         return fail(9, "Editable overlay did not take precedence over the link");
     pdf.save(dir.filePath("saved.pdf"), {});
     if (pdf.links(0).size() != 2) return fail(10, "Saving changed the links");

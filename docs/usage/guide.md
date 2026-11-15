@@ -10,7 +10,9 @@
 4. Choose **Save as PDF** (Ctrl+S; Cmd+S on macOS).
 
 Save to a different path. The saved output becomes the open document.
-Save before closing or opening another PDF: there is no unsaved-change prompt or recovery.
+Closing or opening another PDF with unsaved edits offers **Save**, **Discard**, or
+**Cancel**. Cancelling or failing to save keeps the current document and edits.
+There is no automatic crash recovery.
 Annotations overlay the page rather than replacing original text.
 
 You can also launch with `jpdf-desk "/path/to/document.pdf"`.
@@ -53,9 +55,11 @@ covered by a digital signature invalidates that signature.
 Only images saved with jPDF Desk's removal tags support this workflow; older
 stamp-based or untagged images are not converted.
 
-**An image is not a digital signature.** Embedded images can be extracted even
-after visible signatures are deleted. The processed image is also embedded as
-a reusable template when saving.
+**An image is not a digital signature.** Placed images can be extracted even
+after visible signatures are deleted. Reusable signature templates stay in the
+local image library; saving does not embed the selected template in PDF metadata.
+Legacy embedded templates are removed from metadata on export. This is not a
+secure-redaction feature for images already placed in page content.
 
 ## Metadata and passwords
 
@@ -72,6 +76,8 @@ choose pages and layout, then use **Preview** before printing.
 Ranges use syntax such as `1-3, 5, 8`. Unsupported printer settings are disabled.
 
 Printing includes unsaved edits and rasterizes pages at up to 300 DPI.
+Extremely large page rasters are rejected to avoid excessive memory allocation;
+choose a lower printer resolution if needed.
 **PDF print output does not retain password protection or digital signatures.**
 Use **Save as PDF** to preserve configured password protection.
 Linux physical printing requires CUPS and an app built with its backend;

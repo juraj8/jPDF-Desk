@@ -21,11 +21,13 @@ public:
 protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void applyTheme();
     void openFile();
-    void saveFile(bool digitallySign = false);
+    bool saveFile(bool digitallySign = false);
+    bool confirmUnsavedChanges();
     void checkSignatures();
     void printFile();
     void editMetadata();
@@ -39,6 +41,7 @@ private:
 
     UiTheme::Mode themeMode_ = UiTheme::loadMode();
     PdfDocument pdf_;
+    bool documentModified_ = false;
     DocumentView *view_;
     PageControls *pageControls_;
     OutlinePanel *outlinePanel_;

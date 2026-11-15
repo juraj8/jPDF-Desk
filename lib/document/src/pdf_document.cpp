@@ -32,6 +32,39 @@ bool matches(const char *value, const char *expected)
 }
 
 bool isOwned(const char *author) { return matches(author, owner); }
+
+// Only these annotations have editable counterparts in DocumentView. Other
+// applications' annotations (and unsupported owned types) stay in the raster.
+bool hasEditableOverlay(fz_context *ctx, pdf_annot *annot)
+{
+    if (!isOwned(pdf_annot_author(ctx, annot))) return false;
+    const auto type = pdf_annot_type(ctx, annot);
+    if (type == PDF_ANNOT_FREE_TEXT) return true;
+    if (type != PDF_ANNOT_INK) return false;
+    const char *subject = pdf_annot_subject(ctx, annot);
+    return (matches(subject, checkSubject) || matches(subject, crossSubject)) &&
+        pdf_annot_ink_list_count(ctx, annot) > 0 &&
+        pdf_annot_ink_list_stroke_count(ctx, annot, 0) > 0;
+}
+
+// Bound allocations before MuPDF creates a pixmap. Limit screen resolution
+// gracefully; print output instead rejects a job that exceeds this budget.
+float rasterResolution(fz_rect bounds, double requested, bool limit)
+{
+    const double width = double(bounds.x1) - bounds.x0;
+    const double height = double(bounds.y1) - bounds.y0;
+    if (!std::isfinite(requested) || requested <= 0 || !std::isfinite(width) ||
+        !std::isfinite(height) || width <= 0 || height <= 0)
+        throw std::runtime_error("Invalid PDF page dimensions or render resolution.");
+    // Print jobs need room for ordinary large paper sizes (e.g. A3 at 300 DPI).
+    const double maximumPixels = (limit ? 16.0 : 64.0) * 1024 * 1024;
+    const double maximumDimension = limit ? 8192 : 16384;
+    const double maximum = qMin(qMin(maximumDimension / width, maximumDimension / height),
+                                std::sqrt(maximumPixels / (width * height)));
+    if (!limit && requested > maximum)
+        throw std::runtime_error("PDF page exceeds the raster size limit. Choose a lower print resolution.");
+    return float(qMin(requested, maximum));
+}
 constexpr const char *editableMetadata[] = {"Title", "Author", "Subject", "Keywords", "Creator", "Producer"};
 constexpr float markSize = 24.0f; // Scene pixels; keep in sync with MarkItem.
 
@@ -220,7 +253,10 @@ QVector<DigitalSignatureStatus> PdfDocument::checkDigitalSignatures() const
     if (!doc_) return {};
     if (!signatureServices_.verification)
         throw std::runtime_error("No signature verification provider configured.");
-    return verifySavedPdf(ctx_, path_, *signatureServices_.verification, password_);
+    // Verification reopens the saved file. Its context must be independent of
+    // the live document so the UI can keep painting while a worker verifies.
+    PdfDocument reader;
+    return verifySavedPdf(reader.ctx_, path_, *signatureServices_.verification, password_);
 }
 
 QString PdfDocument::signatureTrustDescription() const
@@ -310,28 +346,39 @@ QSizeF PdfDocument::pageSize(int pageNumber) const
 
 QImage PdfDocument::render(int pageNumber, qreal resolution) const
 {
+    if (!doc_) throw std::runtime_error("No PDF is open.");
     auto page = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return pdf_load_page(ctx_, doc_, pageNumber);
     }), pdf_drop_page);
+    const auto bounds = mupdf::call(ctx_, [&]() noexcept {
+        return fz_bound_page(ctx_, reinterpret_cast<fz_page *>(page.get()));
+    });
+    const float factor = rasterResolution(bounds, scale * resolution, true);
     auto pix = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return fz_new_pixmap_from_page_contents(ctx_, reinterpret_cast<fz_page *>(page.get()),
-            fz_scale(scale * resolution, scale * resolution), fz_device_rgb(ctx_), 0);
+            fz_scale(factor, factor), fz_device_rgb(ctx_), 0);
     }), fz_drop_pixmap);
-    // Native form widgets are separate from page contents. Application-owned
-    // annotations remain scene items and must not be painted twice.
+    // Native widgets and non-editable annotations are separate from contents.
+    // Editable annotations remain scene items and must not be painted twice.
     auto device = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return fz_new_draw_device(ctx_, fz_identity, pix.get());
     }), fz_drop_device);
     mupdf::call(ctx_, [&]() noexcept {
         pdf_update_page(ctx_, page.get());
-        pdf_run_page_widgets(ctx_, page.get(), device.get(),
-                             fz_scale(scale * resolution, scale * resolution), nullptr);
+        const fz_matrix transform = fz_scale(factor, factor);
+        for (auto *annot = pdf_first_annot(ctx_, page.get()); annot;
+             annot = pdf_next_annot(ctx_, annot))
+            if (!hasEditableOverlay(ctx_, annot))
+                pdf_run_annot(ctx_, annot, device.get(), transform, nullptr);
+        pdf_run_page_widgets(ctx_, page.get(), device.get(), transform, nullptr);
         fz_close_device(ctx_, device.get());
     });
     // Qt allocations and the pixel copy happen outside the longjmp boundary.
-    return QImage(fz_pixmap_samples(ctx_, pix.get()), fz_pixmap_width(ctx_, pix.get()),
-                  fz_pixmap_height(ctx_, pix.get()), fz_pixmap_stride(ctx_, pix.get()),
-                  QImage::Format_RGB888).copy();
+    QImage image = QImage(fz_pixmap_samples(ctx_, pix.get()), fz_pixmap_width(ctx_, pix.get()),
+                          fz_pixmap_height(ctx_, pix.get()), fz_pixmap_stride(ctx_, pix.get()),
+                          QImage::Format_RGB888).copy();
+    if (image.isNull()) throw std::runtime_error("Cannot render PDF page.");
+    return image;
 }
 
 QImage PdfDocument::renderForPrint(int pageNumber, int dpi) const
@@ -341,9 +388,13 @@ QImage PdfDocument::renderForPrint(int pageNumber, int dpi) const
     auto page = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return pdf_load_page(ctx_, doc_, pageNumber);
     }), pdf_drop_page);
+    const auto bounds = mupdf::call(ctx_, [&]() noexcept {
+        return fz_bound_page(ctx_, reinterpret_cast<fz_page *>(page.get()));
+    });
+    const float factor = rasterResolution(bounds, dpi / 72.0, false);
     auto pix = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return pdf_new_pixmap_from_page_with_usage(ctx_, page.get(),
-            fz_scale(dpi / 72.0f, dpi / 72.0f), fz_device_rgb(ctx_), 0, "Print", FZ_CROP_BOX);
+            fz_scale(factor, factor), fz_device_rgb(ctx_), 0, "Print", FZ_CROP_BOX);
     }), fz_drop_pixmap);
     QImage image = QImage(fz_pixmap_samples(ctx_, pix.get()), fz_pixmap_width(ctx_, pix.get()),
                           fz_pixmap_height(ctx_, pix.get()), fz_pixmap_stride(ctx_, pix.get()),
@@ -480,6 +531,15 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
     if (!certificatePath.isEmpty() && !signatureServices_.signing)
         throw std::runtime_error("No signing provider configured.");
     auto copy = snapshot({pages, marks, signatures}, signatureTemplate);
+    if (signatureTemplate.isEmpty()) {
+        // An ordinary export must not leak a reusable signature template from
+        // the input PDF. Supplying PNG bytes explicitly opts into embedding.
+        mupdf::call(copy->ctx_, [&]() noexcept {
+            pdf_obj *info = pdf_dict_get(copy->ctx_, pdf_trailer(copy->ctx_, copy->doc_), PDF_NAME(Info));
+            if (pdf_is_dict(copy->ctx_, info))
+                pdf_dict_dels(copy->ctx_, info, "JPDFDeskSignature");
+        });
+    }
     QTemporaryDir staging;
     if (!staging.isValid())
         throw std::runtime_error("Cannot create temporary export directory.");

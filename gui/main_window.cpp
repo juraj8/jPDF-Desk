@@ -27,6 +27,7 @@
 #include <QDialog>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QCloseEvent>
 #include <QMimeData>
 #include <QUrl>
 #include <QLabel>
@@ -319,8 +320,28 @@ void MainWindow::openFile()
     if (!path.isEmpty()) openDocument(path);
 }
 
+bool MainWindow::confirmUnsavedChanges()
+{
+    if (!documentModified_ && !view_->hasUnsavedChanges()) return true;
+    QMessageBox prompt(QMessageBox::Warning, tr("Unsaved changes"),
+        tr("Save your changes before closing this document?"),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, this);
+    prompt.setObjectName(QStringLiteral("unsavedChangesDialog"));
+    prompt.setDefaultButton(QMessageBox::Save);
+    const int choice = prompt.exec();
+    if (choice == QMessageBox::Save) return saveFile();
+    return choice == QMessageBox::Discard;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (confirmUnsavedChanges()) event->accept();
+    else event->ignore();
+}
+
 void MainWindow::openDocument(const QString &path)
 {
+    if (!confirmUnsavedChanges()) return;
     try {
         QString password;
         LoadedPdf loaded;
@@ -351,6 +372,7 @@ void MainWindow::openDocument(const QString &path)
         if (signatureTemplate_.isEmpty()) signatureTemplate_ = loaded.signatureTemplate;
         sidebar_->setSignaturePreview(signatureTemplate_);
         showDocument(true, &loaded);
+        documentModified_ = false;
         setWindowTitle(tr("jPDF Desk — %1").arg(QFileInfo(path).fileName()));
     } catch (const std::exception &e) {
         const QString error = QString::fromUtf8(e.what());
@@ -377,7 +399,10 @@ void MainWindow::editForm()
     try {
         const int page = view_->currentPage();
         FormDialog dialog(pdf_.formFields(page), page,
-                          [this](const QMap<int, QString> &values) { pdf_.setFormValues(values); }, this);
+                          [this](const QMap<int, QString> &values) {
+                              pdf_.setFormValues(values);
+                              if (!values.isEmpty()) documentModified_ = true;
+                          }, this);
         if (dialog.exec() != QDialog::Accepted) return;
         view_->refreshFormValues(); // Preserve annotation drafts and navigation.
         refreshThumbnails();
@@ -390,7 +415,10 @@ void MainWindow::editForm()
 void MainWindow::editPassword()
 {
     if (!pdf_.pageCount()) return;
-    PasswordDialog dialog([this](const QString &password) { pdf_.setPassword(password); }, this);
+    PasswordDialog dialog([this](const QString &password) {
+        pdf_.setPassword(password);
+        documentModified_ = true;
+    }, this);
     dialog.exec();
 }
 
@@ -400,7 +428,9 @@ void MainWindow::editMetadata()
     try {
         MetadataDialog dialog(pdf_.metadata(), this);
         if (dialog.exec() != QDialog::Accepted) return;
-        pdf_.setMetadata(dialog.changes());
+        const auto changes = dialog.changes();
+        pdf_.setMetadata(changes);
+        if (!changes.isEmpty()) documentModified_ = true;
     } catch (const std::exception &e) {
         QMessageBox::critical(this, tr("Cannot edit metadata"), QString::fromUtf8(e.what()));
     }
@@ -455,7 +485,15 @@ void MainWindow::checkSignatures()
 {
     if (!pdf_.pageCount()) return;
     try {
-        const auto signatures = pdf_.checkDigitalSignatures();
+        const auto verify = [this] {
+            QVector<DigitalSignatureStatus> checked;
+            if (!runPdfTask(this, tr("Checking signatures"), [&](const PdfTaskProgress &progress) {
+                checked = pdf_.checkDigitalSignatures();
+                progress.checkCancelled();
+            })) throw PdfOperationCancelled();
+            return checked;
+        };
+        const auto signatures = verify();
         SignatureCheckDialog::OnlineCheck onlineCheck;
 #ifdef JPDF_DESK_ONLINE_REVOCATION
         onlineCheck = [](QWidget *parent, QVector<DigitalSignatureStatus> &checked) {
@@ -463,8 +501,10 @@ void MainWindow::checkSignatures()
         };
 #endif
         SignatureCheckDialog report(signatures, pdf_.signatureTrustDescription(), this, onlineCheck,
-                                    [this] { return pdf_.checkDigitalSignatures(); });
+                                    verify);
         report.exec();
+    } catch (const PdfOperationCancelled &) {
+        return;
     } catch (const jpdf::crypto::ClockValidationError &e) {
         QMessageBox::warning(this, tr("System clock appears incorrect"),
             tr("Signature validity has not been determined. Correct the system date and time, then retry.\n\n%1")
@@ -474,43 +514,48 @@ void MainWindow::checkSignatures()
     }
 }
 
-void MainWindow::saveFile(bool digitallySign)
+bool MainWindow::saveFile(bool digitallySign)
 {
-    if (!pdf_.pageCount()) return;
+    if (!pdf_.pageCount()) return false;
     QString certificate, password;
     if (digitallySign) {
         if (QMessageBox::question(this, tr("Digital signature"),
             tr("Save and digitally sign the completed PDF, including all current edits and placed signature images? "
                "No intermediate save is needed. A signature image is optional. Further edits may invalidate the signature; "
                "existing digital signatures are not preserved by this save. "
-               "Certificate trust depends on the recipient's PDF viewer.")) != QMessageBox::Yes) return;
+               "Certificate trust depends on the recipient's PDF viewer.")) != QMessageBox::Yes) return false;
         // Always show the selected identity before asking for its password.
         SignatureManager manager(certificateStore_, this);
-        if (manager.exec() != QDialog::Accepted) return;
+        if (manager.exec() != QDialog::Accepted) return false;
         try {
             certificate = certificateStore_.activePath();
         } catch (const std::exception &e) {
             QMessageBox::warning(this, tr("Cannot read certificate"), QString::fromUtf8(e.what()));
-            return;
+            return false;
         }
-        if (certificate.isEmpty()) return;
+        if (certificate.isEmpty()) return false;
         bool ok = false;
         password = QInputDialog::getText(this, tr("Certificate password"), tr("Password:"),
                                          QLineEdit::Password, {}, &ok);
-        if (!ok) return;
+        if (!ok) return false;
     }
     QString path = QFileDialog::getSaveFileName(this, tr("Save PDF as"), {}, tr("PDF files (*.pdf)"));
-    if (path.isEmpty()) return;
+    if (path.isEmpty()) return false;
     if (!path.endsWith(QStringLiteral(".pdf"), Qt::CaseInsensitive)) {
         path += QStringLiteral(".pdf");
     }
     try {
         const auto drafts = view_->captureDrafts();
-        pdf_.saveSnapshot(path, drafts, signatureTemplate_, {certificate, password});
+        // Reusable signature images belong in the local library, not hidden
+        // PDF metadata. Placed images are already included in the drafts.
+        pdf_.saveSnapshot(path, drafts, {}, {certificate, password});
         showDocument();
+        documentModified_ = false;
         setWindowTitle((digitallySign ? tr("jPDF Desk — Digitally signed %1")
                                      : tr("jPDF Desk — Saved %1")).arg(QFileInfo(path).fileName()));
+        return true;
     } catch (const std::exception &e) {
         QMessageBox::critical(this, tr("Cannot save PDF"), QString::fromUtf8(e.what()));
+        return false;
     }
 }
