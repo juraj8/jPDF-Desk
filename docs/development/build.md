@@ -80,8 +80,8 @@ cpack --preset release-windows-installer
 ```
 
 The installer requires NSIS. The executable is `.build/release-windows/gui/jpdf-desk.exe`;
-installers appear in `.build/release-windows/packages/`. Digital signing is disabled
-in this preset. Test the result on Windows.
+installers appear in `.build/release-windows/packages/`. This preset omits digital
+signing and verification. Test the result on Windows.
 
 ## macOS build
 

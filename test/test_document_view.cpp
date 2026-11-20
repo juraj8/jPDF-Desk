@@ -15,12 +15,13 @@
 #include <QTemporaryDir>
 
 namespace {
-void makePdf(const QString &path)
+void makePdf(const QString &path, bool shortLastPage = false)
 {
     fz_context *ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
     pdf_document *doc = pdf_create_document(ctx);
     for (int i = 0; i < 2; ++i) {
-        pdf_obj *page = pdf_add_page(ctx, doc, {0, 0, 600, 800}, 0, nullptr, nullptr);
+        const float height = i == 1 && shortLastPage ? 100.f : 800.f;
+        pdf_obj *page = pdf_add_page(ctx, doc, {0, 0, 600, height}, 0, nullptr, nullptr);
         pdf_insert_page(ctx, doc, -1, page);
         pdf_drop_obj(ctx, page);
     }
@@ -169,6 +170,30 @@ int main(int argc, char **argv)
     if (pixel() != QColor(Qt::white)) return 28;
     pdf.saveSnapshot(dir.filePath("removed.pdf"), view.captureDrafts());
     if (!pdf.signatures(0).isEmpty() || pdf.render(0).pixelColor(80, 100) != QColor(Qt::white)) return 22;
+    const QString mixedSizes = dir.filePath("mixed-sizes.pdf");
+    makePdf(mixedSizes, true);
+    pdf.open(mixedSizes);
+    view.showDocument(true);
+    app.processEvents();
+    view.navigatePage(1);
+    app.processEvents();
+    view.addMark(OptionMark::Check);
+    const auto mixedDrafts = view.captureDrafts();
+    if (current != 1 || !mixedDrafts.marks[0].isEmpty() || mixedDrafts.marks[1].size() != 1) return 29;
+    view.navigatePage(-1);
+    if (current != 0) return 30;
+#ifdef Q_OS_UNIX
+    // A symlinked parent must not bypass the Save As source guard.
+    if (!QFile::link(dir.path(), dir.filePath("alias"))) return 31;
+    const auto source = pdf.savedSource();
+    try {
+        pdf.saveSnapshot(dir.filePath("alias/mixed-sizes.pdf"), mixedDrafts);
+        return 32;
+    } catch (const std::runtime_error &) {}
+    PdfDocument unchanged;
+    unchanged.openSavedSource(source);
+    if (!unchanged.marks(1).isEmpty()) return 33;
+#endif
     // Destruction with a live selection must not access deleted overlays.
     view.addText();
     return 0;

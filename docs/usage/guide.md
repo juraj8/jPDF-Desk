@@ -4,12 +4,15 @@
 
 ## Open, annotate, and save
 
+Try these steps with the [sample PDF](../assets/project-approval-demo.pdf).
+
 1. Choose **Open** (Ctrl+O; Cmd+O on macOS).
 2. Choose text, a checkmark, a cross, or a signature in **Tools**.
 3. Drag items into position. Double-click text to edit; select items to resize or delete.
 4. Choose **Save as PDF** (Ctrl+S; Cmd+S on macOS).
 
-Save to a different path. The saved output becomes the open document.
+The window maximizes when you open your first PDF. Save to a different path;
+the saved output becomes the open document.
 Closing or opening another PDF with unsaved edits offers **Save**, **Discard**, or
 **Cancel**. Cancelling or failing to save keeps the current document and edits.
 There is no automatic crash recovery.
@@ -37,9 +40,9 @@ Use **+ / −** or Ctrl+mouse wheel to zoom.
 
 Press Ctrl+F (Cmd+F on macOS), enter text, and press Enter.
 Use F3 / Shift+F3 or the match buttons to navigate results.
-Search is case-insensitive and reads selectable text in the saved file, not
-scanned images or unsaved edits. Highlights are temporary. **Cancel** discards
-partial results without changing edits.
+Search reads selectable text in the saved revision, not scanned images or unsaved
+edits. It ignores case. If the file on disk has changed, reopen it to search.
+**Cancel** discards partial results without changing edits.
 
 ## Handwritten signatures
 
@@ -76,8 +79,8 @@ choose pages and layout, then use **Preview** before printing.
 Ranges use syntax such as `1-3, 5, 8`. Unsupported printer settings are disabled.
 
 Printing includes unsaved edits and rasterizes pages at up to 300 DPI.
-Extremely large page rasters are rejected to avoid excessive memory allocation;
-choose a lower printer resolution if needed.
+Very large pages may be rasterized at a lower resolution to limit memory use.
+**Actual size** still uses the PDF’s physical dimensions; content outside the printable area is clipped.
 **PDF print output does not retain password protection or digital signatures.**
 Use **Save as PDF** to preserve configured password protection.
 Linux physical printing requires CUPS and an app built with its backend;
@@ -85,8 +88,8 @@ Snap users should check [interface connections](installation.md#snap).
 
 ## Digital signatures
 
-Digital signing requires a cryptography-enabled build; Windows presets disable it.
-Handwritten images work independently.
+Digital signing and verification require a cryptography-enabled build; the
+Windows presets omit both. Signature images still work.
 
 1. Choose **Manage certificates…** and import a password-protected `.p12`/`.pfx`
    containing your private key.
@@ -102,7 +105,8 @@ Timestamp creation, hardware tokens, and long-term validation are unsupported.
 
 Choose **Check signatures…** for an overall result and separate integrity,
 certificate-chain, certificate-date, signing-time, revocation, and document-coverage
-checks. Expand **Details** for diagnostics. Verification reads the saved PDF.
+checks. Expand **Details** for diagnostics. Verification reads the saved revision,
+not unsaved edits. If the file on disk has changed, reopen it before checking signatures.
 Intact signed bytes do not establish trust or cover later unsigned revisions.
 
 The overall result distinguishes altered signed bytes (**Invalid**), a certificate

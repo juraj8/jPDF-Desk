@@ -57,6 +57,7 @@ jpdf_desk_add_test(image-loading test_image_loading.cpp
     LIBRARIES jpdf-desk-image jpdf-desk-document-types jpdf-desk-mupdf)
 jpdf_desk_add_test(signature-image test_signature_image.cpp WIDGETS)
 jpdf_desk_add_test(app-identity test_app_identity.cpp WIDGETS)
+jpdf_desk_add_test(update-check test_update_check.cpp LIBRARIES jpdf-desk-gui-lib)
 # Printing tests exercise only the printing library, not the application window.
 jpdf_desk_add_test(printing test_printing.cpp
     LIBRARIES jpdf-desk-printing jpdf-desk-qt-platform jpdf-desk-mupdf)

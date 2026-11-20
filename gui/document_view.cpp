@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QScopedValueRollback>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <exception>
@@ -211,7 +212,7 @@ void DocumentView::findText(const QString &query)
         QVector<TextSearchMatch> matches;
         if (!runPdfTask(this, tr("Searching PDF"), [&](const PdfTaskProgress &progress) {
             PdfDocument reader;
-            reader.open(source.path, source.password);
+            reader.openSavedSource(source);
             matches = reader.search(query, [&](int completed, int total) {
                 progress.report(completed, total);
                 return true;
@@ -249,10 +250,7 @@ void DocumentView::navigateMatch(int offset)
         searchHighlights_.append(highlight);
         bounds = bounds.united(rect);
     }
-    centerOn(pages_[match.page].root->mapToScene(bounds.center()));
-    updateCurrentPage();
-    refreshPageImages();
-    updateTextTools();
+    focusPage(match.page, [&] { centerOn(pages_[match.page].root->mapToScene(bounds.center())); });
     emit searchResultChanged(searchIndex_, count);
 }
 
@@ -266,14 +264,25 @@ void DocumentView::goToPage(int target)
     if (target < 0 || target >= pages_.size()) return;
     const QRectF rect = pages_[target].root->sceneBoundingRect();
     const qreal halfHeight = viewport()->height() / (2 * transform().m22());
-    centerOn(rect.center().x(), rect.top() + halfHeight);
-    updateCurrentPage();
+    focusPage(target, [&] { centerOn(rect.center().x(), rect.top() + halfHeight); });
+}
+
+void DocumentView::focusPage(int page, const std::function<void()> &scroll)
+{
+    {
+        // Scrollbar clamping may leave the viewport center on a different page.
+        QScopedValueRollback<bool> guard(navigating_, true);
+        scroll();
+    }
+    page_ = page;
+    emit currentPageChanged(page_, pages_.size());
     refreshPageImages();
+    updateTextTools();
 }
 
 void DocumentView::updateCurrentPage()
 {
-    if (rebuilding_ || pages_.isEmpty()) return;
+    if (rebuilding_ || navigating_ || pages_.isEmpty()) return;
     const qreal center = mapToScene(viewport()->rect().center()).y();
     for (int i = 0; i < pages_.size(); ++i) {
         page_ = i;
@@ -301,7 +310,7 @@ void DocumentView::refreshFormValues()
 
 void DocumentView::refreshPageImages()
 {
-    if (rebuilding_ || pages_.isEmpty()) return;
+    if (rebuilding_ || navigating_ || pages_.isEmpty()) return;
     try {
         const qreal resolution = qMax(qreal(1), transform().m11() * devicePixelRatioF());
         const QRectF visible = mapToScene(viewport()->rect()).boundingRect();
@@ -404,12 +413,11 @@ void DocumentView::showDocument(bool resetPage, const LoadedPdf *loaded)
                                                qBound(rect.top(), link.position.y(), rect.bottom()));
                         const QPointF point = target->mapToScene(position);
                         // Put the destination section at the top, keeping zoom unchanged.
-                        centerOn(target->sceneBoundingRect().center().x(),
-                                 point.y() + viewport()->height() / (2 * transform().m22()));
-                        ensureVisible(QRectF(point, QSizeF(1, 1)), 0, 0);
-                        updateCurrentPage();
-                        refreshPageImages();
-                        updateTextTools();
+                        focusPage(link.page, [&] {
+                            centerOn(target->sceneBoundingRect().center().x(),
+                                     point.y() + viewport()->height() / (2 * transform().m22()));
+                            ensureVisible(QRectF(point, QSizeF(1, 1)), 0, 0);
+                        });
                     });
                 }
             } catch (const std::exception &) {
@@ -429,13 +437,7 @@ void DocumentView::showDocument(bool resetPage, const LoadedPdf *loaded)
         emit pdfError(QString::fromUtf8(e.what()));
     }
     rebuilding_ = false;
-    if (!pages_.isEmpty()) {
-        page_ = qMin(page_, int(pages_.size()) - 1);
-        const QRectF rect = pages_[page_].root->sceneBoundingRect();
-        centerOn(rect.center().x(), rect.top() + viewport()->height() / (2 * transform().m22()));
-    }
-    updateCurrentPage();
-    refreshPageImages();
+    if (!pages_.isEmpty()) goToPage(qMin(page_, int(pages_.size()) - 1));
     // Compare normalized scene values, not PDF rectangles: text layout can
     // change an annotation's captured height when it is first loaded.
     savedDrafts_ = captureDrafts();

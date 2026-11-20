@@ -1,6 +1,7 @@
 #include "ui/about_dialog.h"
 #include "ui/dialog_helpers.h"
 #include "app_info.h"
+#include "update_check.h"
 
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -30,6 +31,15 @@ AboutDialog::AboutDialog(const QIcon &icon, QWidget *parent) : QDialog(parent)
     title->setObjectName(QStringLiteral("windowHeading"));
     heading->addWidget(title, 1);
     layout->addLayout(heading);
+
+    auto *updateNotice = new QLabel(this);
+    updateNotice->setObjectName(QStringLiteral("aboutUpdateNotice"));
+    updateNotice->setTextFormat(Qt::RichText);
+    updateNotice->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    updateNotice->setOpenExternalLinks(true);
+    updateNotice->setWordWrap(true);
+    updateNotice->hide();
+    layout->addWidget(updateNotice);
 
     auto *description = new QLabel(QString::fromUtf8(AppInfo::description), this);
     description->setObjectName(QStringLiteral("aboutDescription"));
@@ -98,4 +108,12 @@ AboutDialog::AboutDialog(const QIcon &icon, QWidget *parent) : QDialog(parent)
     layout->addWidget(buttons);
     // Account for wrapped text rather than relying only on the initial height.
     resize(width(), qMax(height(), layout->totalHeightForWidth(width())));
+
+    checkForUpdates(this, [updateNotice](const QString &tag) {
+        updateNotice->setText(QStringLiteral("<b>%1</b> <a href=\"%2\">%3</a>")
+            .arg(tr("Version %1 is available.").arg(tag.mid(1)).toHtmlEscaped(),
+                 releasePageUrl(tag).toString(QUrl::FullyEncoded).toHtmlEscaped(),
+                 tr("View release and downloads").toHtmlEscaped()));
+        updateNotice->show();
+    });
 }

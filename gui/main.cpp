@@ -1,5 +1,6 @@
 #include "main_window.h"
 #include "app_identity.h"
+#include "update_check.h"
 #ifdef JPDF_DESK_HAS_OPENSSL
 #include "jpdf_desk/signing/openssl_provider.h"
 #endif
@@ -28,6 +29,7 @@ int main(int argc, char *argv[])
     MainWindow window(nullptr, services);
     application.setWindowIcon(window.windowIcon());
     window.show();
+    showUpdateNotification(&window);
 
     const QStringList files = parser.positionalArguments();
     if (!files.isEmpty()) {

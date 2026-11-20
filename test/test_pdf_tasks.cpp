@@ -12,6 +12,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSaveFile>
 #include <QTemporaryDir>
 #include <QThread>
 #include <QTimer>
@@ -126,7 +127,7 @@ int main(int argc, char **argv)
     QVector<TextSearchMatch> matches;
     if (!runPdfTask(nullptr, "Encrypted search", [&](const auto &progress) {
         PdfDocument independent;
-        independent.open(source.path, source.password);
+        independent.openSavedSource(source);
         matches = independent.search("Needle", [&](int completed, int total) {
             progress.report(completed, total);
             return true;
@@ -187,5 +188,34 @@ int main(int argc, char **argv)
     verify->click();
     verifyTimer.stop();
     if (!sawCancellation || sawReport || !verifier->workerThread) return 15;
+
+    // A different revision at the same path must never be searched or verified.
+    PdfDocument revision({{}, verifier});
+    revision.open(path);
+    const auto previous = revision.savedSource();
+#ifdef Q_OS_UNIX
+    QFile original(path);
+    if (!original.open(QIODevice::ReadOnly)) return 16;
+    const auto bytes = original.readAll() + '\n';
+    original.close();
+    QSaveFile changed(path);
+    if (!changed.open(QIODevice::WriteOnly) || changed.write(bytes) != bytes.size() || !changed.commit()) return 16;
+#else
+    QFile changed(path);
+    if (!changed.open(QIODevice::Append) || changed.write("\n", 1) != 1) return 16;
+    changed.close();
+#endif
+    const auto rejected = [](const auto &work) {
+        try { work(); }
+        catch (const std::runtime_error &error) { return QString::fromUtf8(error.what()).contains("has changed"); }
+        return false;
+    };
+    PdfDocument reader;
+    if (!rejected([&] { reader.openSavedSource(previous); })) return 17;
+    verifier->entered.store(false);
+    if (!rejected([&] { revision.checkDigitalSignatures(); }) || verifier->entered.load()) return 18;
+    revision.open(path);
+    reader.openSavedSource(revision.savedSource());
+    if (reader.search("Needle").size() != 40) return 19;
     return 0;
 }

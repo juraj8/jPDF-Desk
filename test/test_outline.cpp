@@ -105,6 +105,9 @@ int main(int argc, char **argv)
     if (!panel || !toggle || !tree || !thumbnails || thumbnails->count() ||
         !pageLabel || toggle->isEnabled() || !tree->isHidden()) return 5;
     window.openDocument(input);
+    // Exercise layout at controlled sizes, not the offscreen screen's geometry.
+    window.showNormal();
+    window.resize(1100, 800);
     app.processEvents();
     if (!toggle->isEnabled() || !toggle->isChecked() || tree->isHidden() || tree->topLevelItemCount() != 2)
         return 6;

@@ -76,7 +76,8 @@ int main(int argc, char **argv)
     const QImage bounded = doc.render(0, 100);
     if (bounded.isNull() || bounded.width() > 8192 || bounded.height() > 8192 ||
         qint64(bounded.width()) * bounded.height() > 17 * 1024 * 1024) return 5;
-    try { doc.renderForPrint(0, 300); return 6; }
-    catch (const std::runtime_error &) {}
+    const QImage boundedPrint = doc.renderForPrint(0, 300);
+    if (boundedPrint.isNull() || boundedPrint.width() > 16384 || boundedPrint.height() > 16384 ||
+        qint64(boundedPrint.width()) * boundedPrint.height() > 64 * 1024 * 1024) return 6;
     return 0;
 }

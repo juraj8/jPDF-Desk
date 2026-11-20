@@ -30,8 +30,9 @@ Link `JPDFDesk::Document` and include `jpdf_desk/document/pdf_document.h`.
   one thread at a time. Errors are C++ exceptions.
 - `setFormValues()` validates and applies changes atomically. Refresh field IDs
   after opening or saving. No PDF JavaScript is executed.
-- Search matches selectable text, not OCR or scene drafts. `savedSource()` exposes
-  in-memory credentials for independent readers; never persist or log them.
+- Search matches selectable text, not OCR or scene drafts. `savedSource()` carries
+  a byte fingerprint and in-memory credentials; never persist or log them. Use
+  `openSavedSource()` for independent readers so a changed file is rejected.
 
 ## MuPDF error boundaries
 

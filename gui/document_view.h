@@ -2,6 +2,7 @@
 
 #include "jpdf_desk/document/pdf_document.h"
 #include <QGraphicsView>
+#include <functional>
 
 class QGraphicsPixmapItem;
 class QGraphicsRectItem;
@@ -44,6 +45,7 @@ protected:
 private:
     void refreshPageImages();
     void updateCurrentPage();
+    void focusPage(int page, const std::function<void()> &scroll);
     void updateTextTools();
     QPointF insertionPoint() const;
 
@@ -61,6 +63,7 @@ private:
     std::unique_ptr<PdfDocument> removalPreview_;
     QMap<int, QVector<Signature>> previewSignatures_;
     bool rebuilding_ = false;
+    bool navigating_ = false;
     bool dark_ = false;
     int page_ = 0;
     QVector<TextSearchMatch> searchMatches_;

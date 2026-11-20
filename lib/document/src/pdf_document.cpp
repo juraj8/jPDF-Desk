@@ -5,6 +5,7 @@
 #include <mupdf/fitz.h>
 #include <mupdf/pdf.h>
 
+#include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
@@ -47,9 +48,8 @@ bool hasEditableOverlay(fz_context *ctx, pdf_annot *annot)
         pdf_annot_ink_list_stroke_count(ctx, annot, 0) > 0;
 }
 
-// Bound allocations before MuPDF creates a pixmap. Limit screen resolution
-// gracefully; print output instead rejects a job that exceeds this budget.
-float rasterResolution(fz_rect bounds, double requested, bool limit)
+// Bound raster allocations without changing the physical size of the page.
+float rasterResolution(fz_rect bounds, double requested, bool screen)
 {
     const double width = double(bounds.x1) - bounds.x0;
     const double height = double(bounds.y1) - bounds.y0;
@@ -57,12 +57,10 @@ float rasterResolution(fz_rect bounds, double requested, bool limit)
         !std::isfinite(height) || width <= 0 || height <= 0)
         throw std::runtime_error("Invalid PDF page dimensions or render resolution.");
     // Print jobs need room for ordinary large paper sizes (e.g. A3 at 300 DPI).
-    const double maximumPixels = (limit ? 16.0 : 64.0) * 1024 * 1024;
-    const double maximumDimension = limit ? 8192 : 16384;
+    const double maximumPixels = (screen ? 16.0 : 64.0) * 1024 * 1024;
+    const double maximumDimension = screen ? 8192 : 16384;
     const double maximum = qMin(qMin(maximumDimension / width, maximumDimension / height),
                                 std::sqrt(maximumPixels / (width * height)));
-    if (!limit && requested > maximum)
-        throw std::runtime_error("PDF page exceeds the raster size limit. Choose a lower print resolution.");
     return float(qMin(requested, maximum));
 }
 constexpr const char *editableMetadata[] = {"Title", "Author", "Subject", "Keywords", "Creator", "Producer"};
@@ -155,13 +153,41 @@ PdfDocument::~PdfDocument()
 
 void PdfDocument::open(const QString &path, const QString &password)
 {
+    openSource(path, password, {});
+}
+
+void PdfDocument::openSavedSource(const PdfSource &source)
+{
+    if (source.fingerprint.isEmpty()) throw std::runtime_error("No saved PDF revision is available.");
+    openSource(source.path, source.password, source.fingerprint);
+}
+
+void PdfDocument::openSource(const QString &path, const QString &password, const QByteArray &expectedFingerprint)
+{
+    const QString absolutePath = QFileInfo(path).absoluteFilePath();
+    const QByteArray name = absolutePath.toUtf8();
+    auto stream = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+        return fz_open_file(ctx_, name.constData());
+    }), fz_drop_stream);
+    // Hash and parse the same file handle so an atomic path replacement cannot
+    // redirect parsing after the identity check.
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    unsigned char chunk[64 * 1024];
+    for (;;) {
+        const auto count = mupdf::call(ctx_, [&]() noexcept { return fz_read(ctx_, stream.get(), chunk, sizeof(chunk)); });
+        if (!count) break;
+        hash.addData(QByteArrayView(reinterpret_cast<const char *>(chunk), qsizetype(count)));
+    }
+    if (stream->error) throw std::runtime_error("Cannot read saved PDF bytes.");
+    const QByteArray fingerprint = hash.result();
+    if (!expectedFingerprint.isEmpty() && fingerprint != expectedFingerprint)
+        throw std::runtime_error("The PDF on disk has changed. Reopen it before searching or checking signatures.");
+    mupdf::call(ctx_, [&]() noexcept { fz_seek(ctx_, stream.get(), 0, SEEK_SET); });
     auto next = mupdf::own(ctx_, static_cast<pdf_document *>(nullptr), pdf_drop_document);
-    // MuPDF expects UTF-8 paths, including on Windows (not the local code page).
-    const QByteArray name = path.toUtf8();
     QByteArray secret = password.toUtf8();
     try {
         next.reset(mupdf::call(ctx_, [&]() noexcept {
-            return pdf_open_document(ctx_, name.constData());
+            return pdf_open_document_with_stream(ctx_, stream.get());
         }));
         const bool passwordRequired = mupdf::call(ctx_, [&]() noexcept {
             return pdf_needs_password(ctx_, next.get()) &&
@@ -176,7 +202,8 @@ void PdfDocument::open(const QString &path, const QString &password)
     if (doc_)
         pdf_drop_document(ctx_, doc_);
     doc_ = next.release();
-    path_ = path;
+    path_ = absolutePath;
+    fingerprint_ = fingerprint;
     password_ = password;
     savePassword_.clear();
     passwordChanged_ = false;
@@ -187,6 +214,7 @@ void PdfDocument::swapContent(PdfDocument &other) noexcept
     std::swap(ctx_, other.ctx_);
     std::swap(doc_, other.doc_);
     path_.swap(other.path_);
+    fingerprint_.swap(other.fingerprint_);
     password_.swap(other.password_);
     savePassword_.swap(other.savePassword_);
     std::swap(passwordChanged_, other.passwordChanged_);
@@ -256,7 +284,8 @@ QVector<DigitalSignatureStatus> PdfDocument::checkDigitalSignatures() const
     // Verification reopens the saved file. Its context must be independent of
     // the live document so the UI can keep painting while a worker verifies.
     PdfDocument reader;
-    return verifySavedPdf(reader.ctx_, path_, *signatureServices_.verification, password_);
+    reader.openSavedSource(savedSource());
+    return verifyOpenedPdf(reader.ctx_, reader.doc_, *signatureServices_.verification);
 }
 
 QString PdfDocument::signatureTrustDescription() const
@@ -381,6 +410,16 @@ QImage PdfDocument::render(int pageNumber, qreal resolution) const
     return image;
 }
 
+QSizeF PdfDocument::printPageSizePoints(int pageNumber) const
+{
+    if (!doc_) throw std::runtime_error("No PDF is open.");
+    auto page = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
+        return pdf_load_page(ctx_, doc_, pageNumber);
+    }), pdf_drop_page);
+    const auto bounds = mupdf::call(ctx_, [&]() noexcept { return pdf_bound_page(ctx_, page.get(), FZ_CROP_BOX); });
+    return QSizeF(double(bounds.x1) - bounds.x0, double(bounds.y1) - bounds.y0);
+}
+
 QImage PdfDocument::renderForPrint(int pageNumber, int dpi) const
 {
     if (!doc_ || dpi <= 0)
@@ -388,9 +427,7 @@ QImage PdfDocument::renderForPrint(int pageNumber, int dpi) const
     auto page = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return pdf_load_page(ctx_, doc_, pageNumber);
     }), pdf_drop_page);
-    const auto bounds = mupdf::call(ctx_, [&]() noexcept {
-        return fz_bound_page(ctx_, reinterpret_cast<fz_page *>(page.get()));
-    });
+    const auto bounds = mupdf::call(ctx_, [&]() noexcept { return pdf_bound_page(ctx_, page.get(), FZ_CROP_BOX); });
     const float factor = rasterResolution(bounds, dpi / 72.0, false);
     auto pix = mupdf::own(ctx_, mupdf::call(ctx_, [&]() noexcept {
         return pdf_new_pixmap_from_page_with_usage(ctx_, page.get(),
@@ -526,7 +563,10 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
                        const QString &certificatePath, const QString &certificatePassword)
 {
     // Never overwrite the source while MuPDF has it open.
-    if (QFileInfo(path).absoluteFilePath() == QFileInfo(path_).absoluteFilePath())
+    const QFileInfo outputInfo(path), sourceInfo(path_);
+    const QString canonicalSource = sourceInfo.canonicalFilePath();
+    if (outputInfo.absoluteFilePath() == sourceInfo.absoluteFilePath() ||
+        (!canonicalSource.isEmpty() && outputInfo.canonicalFilePath() == canonicalSource))
         throw std::runtime_error("Choose a different output file (the source PDF is open).");
     if (!certificatePath.isEmpty() && !signatureServices_.signing)
         throw std::runtime_error("No signing provider configured.");
@@ -570,17 +610,21 @@ void PdfDocument::save(const QString &path, const QMap<int, QVector<TextField>> 
     QSaveFile destination(path);
     if (!source.open(QIODevice::ReadOnly) || !destination.open(QIODevice::WriteOnly))
         throw std::runtime_error("Cannot open PDF output.");
+    QCryptographicHash hash(QCryptographicHash::Sha256);
     while (!source.atEnd()) {
         const QByteArray chunk = source.read(1024 * 1024);
         if (chunk.isEmpty() || destination.write(chunk) != chunk.size())
             throw std::runtime_error("Cannot copy PDF output.");
+        hash.addData(chunk);
     }
-    // Preallocate the final path before committing; adoption below cannot fail.
-    copy->path_ = path;
+    // Prepare the final path and fingerprint before committing the output.
+    copy->path_ = outputInfo.absoluteFilePath();
+    copy->fingerprint_ = hash.result();
     if (!destination.commit()) throw std::runtime_error("Cannot commit PDF output.");
     std::swap(ctx_, copy->ctx_);
     std::swap(doc_, copy->doc_);
     path_.swap(copy->path_);
+    fingerprint_.swap(copy->fingerprint_);
     password_.swap(copy->password_);
     savePassword_.clear();
     passwordChanged_ = false;

@@ -27,4 +27,5 @@ Preview from the repository root:
 python3 -m http.server 8000 --directory docs
 ```
 
-Open `http://localhost:8000/`.
+Open `http://localhost:8000/`. To regenerate the sample PDF and preview, install
+`reportlab` and `pymupdf`, then run `python3 script/create-demo-pdf.py`.

@@ -1,0 +1,229 @@
+name: Linux and cross-builds
+
+on:
+  workflow_call:
+
+jobs:
+  image:
+    name: Resolve build container
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.image.outputs.name }}
+    steps:
+      - name: Resolve CI image
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/ci-build:debian13" >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: ${{ matrix.name }}
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container:
+      image: ${{ needs.image.outputs.name }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - preset: release-linux
+            name: Linux x64 packages
+          - preset: release-windows
+            name: Windows x64 installer
+          - preset: release-linux-static
+            name: Linux x64 standalone
+          - preset: release-linux-arm64
+            name: Linux ARM64 cross-build
+          - preset: release-windows-static
+            name: Windows x64 standalone
+    env:
+      BUILD_JOBS: "2"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install AppImage tools
+        if: matrix.preset == 'release-linux'
+        run: |
+          mkdir -p /opt/appimage-tools
+          curl --fail --location --retry 3 \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+            -o /opt/appimage-tools/linuxdeploy
+          curl --fail --location --retry 3 \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage \
+            -o /opt/appimage-tools/linuxdeploy-plugin-appimage
+          chmod +x /opt/appimage-tools/*
+          echo /opt/appimage-tools >> "$GITHUB_PATH"
+      - name: Build, test, and package
+        run: bash script/ci-build.sh "${{ matrix.preset }}"
+      # Reuse native Qt/MuPDF outputs; distributable artifacts were already copied
+      # to dist/. Keep the enabled and disabled test reports separately.
+      - name: Build and test without OpenSSL
+        if: matrix.preset == 'release-linux'
+        run: |
+          cmake -S . -B .build/release-linux -DBUILD_TESTING=ON -DJPDF_DESK_WITH_OPENSSL=OFF
+          cmake --build .build/release-linux --parallel "$BUILD_JOBS"
+          ctest --test-dir .build/release-linux --output-on-failure --no-tests=error \
+            --output-junit test-results-no-openssl.xml
+      - name: Separate Linux packages
+        if: matrix.preset == 'release-linux'
+        run: |
+          set -euo pipefail
+          for format in appimage deb rpm; do
+            extension="$format"
+            if [[ "$format" == appimage ]]; then extension=AppImage; fi
+            directory="dist/release-linux-$format"
+            mkdir -p "$directory"
+            cp dist/release-linux/*."$extension" "$directory/"
+            (cd "$directory" && sha256sum ./* > SHA256SUMS)
+          done
+      - name: Upload Linux AppImage
+        if: matrix.preset == 'release-linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-appimage
+          path: dist/release-linux-appimage/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Linux DEB
+        if: matrix.preset == 'release-linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-deb
+          path: dist/release-linux-deb/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Linux RPM
+        if: matrix.preset == 'release-linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-rpm
+          path: dist/release-linux-rpm/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload distribution artifacts
+        if: matrix.preset != 'release-linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.preset }}
+          path: dist/${{ matrix.preset }}/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.preset }}
+          path: |
+            .build/*/test-results*.xml
+            .build/*/Testing/Temporary/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+
+  ubuntu-deb:
+    name: Ubuntu 22.04 x64 DEB
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    timeout-minutes: 120
+    env:
+      BUILD_JOBS: "2"
+      DEBIAN_FRONTEND: noninteractive
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git build-essential ninja-build dpkg-dev file perl python3-venv pkg-config \
+            libssl-dev libzstd-dev openssl libcups2-dev \
+            libfontconfig1-dev libfreetype-dev libgl1-mesa-dev libx11-dev \
+            libx11-xcb-dev libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
+            libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+            libxcb-randr0-dev libxcb-render-util0-dev libxcb-shape0-dev \
+            libxcb-shm0-dev libxcb-sync-dev libxcb-util-dev libxcb-xfixes0-dev \
+            libxcb-xkb-dev libxext-dev libxfixes-dev libxi-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libxrender-dev
+          # Jammy's system CMake is older than the project's required 3.25.
+          python3 -m venv /opt/ci-cmake
+          /opt/ci-cmake/bin/pip install --only-binary=:all: cmake==3.31.6
+          echo /opt/ci-cmake/bin >> "$GITHUB_PATH"
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Build, test, and package
+        run: bash script/ci-build.sh release-linux --deb-only
+      - name: Label Ubuntu package and write checksum
+        run: |
+          mkdir -p dist/release-linux-deb-ubuntu22.04
+          for package in dist/release-linux/*.deb; do
+            filename=${package##*/}
+            cp "$package" "dist/release-linux-deb-ubuntu22.04/${filename%.deb}-ubuntu22.04.deb"
+          done
+          (cd dist/release-linux-deb-ubuntu22.04 && sha256sum ./*.deb > SHA256SUMS)
+      - name: Upload Ubuntu DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-deb-ubuntu22.04
+          path: dist/release-linux-deb-ubuntu22.04/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-release-linux-deb-ubuntu22.04
+          path: |
+            .build/release-linux/test-results.xml
+            .build/release-linux/Testing/Temporary/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+
+  ubuntu-install:
+    name: Test Ubuntu DEB on ${{ matrix.image }}
+    needs: ubuntu-deb
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ubuntu:22.04', 'ubuntu:24.04']
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Download Ubuntu DEB
+        uses: actions/download-artifact@v4
+        with:
+          name: release-linux-deb-ubuntu22.04
+          path: package
+      - name: Install package in a clean environment
+        run: |
+          (cd package && sha256sum --check SHA256SUMS)
+          apt-get update
+          apt-get install -y --no-install-recommends ./package/*.deb
+      - name: Install smoke test tools
+        run: apt-get install -y --no-install-recommends ca-certificates git xvfb xauth xdotool
+      - name: Check out sample PDF
+        uses: actions/checkout@v4
+        with:
+          path: source
+          sparse-checkout: docs/assets/project-approval-demo.pdf
+          sparse-checkout-cone-mode: false
+      - name: Open a PDF in the installed app
+        run: |
+          xvfb-run -a bash -es "$PWD/source/docs/assets/project-approval-demo.pdf" <<'BASH'
+          log=$(mktemp)
+          QT_QPA_PLATFORM=xcb jpdf-desk "$1" > "$log" 2>&1 &
+          app=$!
+          trap 'kill "$app" 2>/dev/null || true; tail -n 50 "$log"; rm -f "$log"' EXIT
+          timeout 30s xdotool search --onlyvisible --sync --name 'project-approval-demo[.]pdf$'
+          kill -0 "$app"
+          BASH

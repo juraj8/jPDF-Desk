@@ -72,18 +72,20 @@ void printDocument(const PdfDocument &document, QPrinter &printer, int currentPa
         for (int i = 0; i < output.size(); ++i) {
             if (i > 0 && !printer.newPage()) throw std::runtime_error("Cannot print the next page.");
             for (int slot = 0; slot < output[i].size(); ++slot) {
-                QImage image = document.renderForPrint(output[i][slot], dpi);
+                const int page = output[i][slot];
+                QImage image = document.renderForPrint(page, dpi);
                 // Enforce grayscale even if the driver does not convert raster images.
                 if (printer.colorMode() == QPrinter::GrayScale)
                     image = image.convertToFormat(QImage::Format_Grayscale8);
                 int column = slot % columns;
                 if (options.rightToLeft) column = columns - 1 - column;
                 const QRectF area(QPointF(column * cell.width(), (slot / columns) * cell.height()), cell);
-                QSizeF size = image.size();
+                // Physical page geometry is independent of the rasterization budget.
+                QSizeF size = document.printPageSizePoints(page);
                 if (options.scaling == PrintOptions::Scaling::Fit)
                     size.scale(cell, Qt::KeepAspectRatio);
                 else
-                    size *= double(printer.resolution()) / dpi;
+                    size *= printer.resolution() / 72.0;
                 size *= options.scalePercent / 100;
                 const QRectF target(area.center() - QPointF(size.width() / 2, size.height() / 2), size);
                 painter.save();

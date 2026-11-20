@@ -13,10 +13,11 @@ public:
     PdfOperationCancelled() : std::runtime_error("PDF operation cancelled.") {}
 };
 
-// Sensitive, in-memory credentials for an independent reader. Never persist or log.
+// Saved-file identity and sensitive in-memory credentials. Never persist or log.
 struct PdfSource {
     QString path;
     QString password;
+    QByteArray fingerprint = {};
 };
 
 // Opening failed because the document requires a valid password.
@@ -38,7 +39,9 @@ public:
 
     // A failed open (including authentication) leaves the current document intact.
     void open(const QString &path, const QString &password = {});
-    PdfSource savedSource() const { return {path_, password_}; }
+    PdfSource savedSource() const { return {path_, password_, fingerprint_}; }
+    // Reject a changed or replaced file instead of using it as the saved revision.
+    void openSavedSource(const PdfSource &source);
     // Transfer document state after exclusive worker use; retain each instance's providers.
     void swapContent(PdfDocument &other) noexcept;
     // An independent, authenticated copy including unsaved metadata and edits.
@@ -75,6 +78,7 @@ public:
         const std::function<bool(int completed, int total)> &progress = {}) const;
     QSizeF pageSize(int pageNumber) const;
     QImage render(int pageNumber, qreal resolution = 1.0) const;
+    QSizeF printPageSizePoints(int pageNumber) const;
     QImage renderForPrint(int pageNumber, int dpi = 300) const;
     QVector<TextField> fields(int pageNumber) const;
     QVector<OptionMark> marks(int pageNumber) const;
@@ -90,12 +94,14 @@ public:
     QString path() const { return path_; }
 
 private:
+    void openSource(const QString &path, const QString &password, const QByteArray &expectedFingerprint);
     void applyAnnotations(const DocumentAnnotations &annotations, const QByteArray &signatureTemplate);
     // Keeps adopted exports independent of temporary files (also on Windows).
     void openBuffered(const QString &path, const QString &password);
     fz_context *ctx_ = nullptr;
     pdf_document *doc_ = nullptr;
     QString path_;
+    QByteArray fingerprint_;
     // Kept only in memory to reopen encrypted snapshots and verify signatures.
     QString password_;
     QString savePassword_;

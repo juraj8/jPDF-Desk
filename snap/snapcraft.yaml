@@ -38,6 +38,7 @@ apps:
       - opengl
       - home
       - removable-media
+      - network
       - cups
 
 parts:

@@ -6,10 +6,12 @@ Sources live in `gui/`.
 
 ## Responsibilities
 
-- `main.cpp`: application setup and signing-provider selection.
+- `main.cpp`: application setup and signing-provider selection. `update_check`
+  queries GitHub for stable releases without downloading or installing packages.
 - `MainWindow`: document ownership, file operations, dialogs, and errors.
 - `DocumentView`: page scene, navigation, raster caching, search highlights,
-  and unsaved annotation edits. The document must outlive the view.
+  and unsaved annotation edits. Explicit navigation selects the target page even
+  if scrolling cannot center it. The document must outlive the view.
 - `SignatureStore`: asset persistence; `SignatureManager`: asset presentation.
   Neither stores passwords or performs PDF signing.
 - `ui/`: widgets, dialogs, graphics items, and presentation helpers.
@@ -30,11 +32,10 @@ use atomics; errors return to the caller. Never share a live MuPDF context
 between threads or create Qt pixmaps/graphics items off the GUI thread.
 
 Loading adopts an independent document only after success; failure or cancellation
-preserves the current document and drafts. Search uses an independent reader of
-the saved file, excluding unsaved edits. Never persist or log its credentials.
-Cancellation is cooperative between page operations. Offline signature verification
-also uses a worker, with an independent MuPDF context; cancellation discards its
-results after the current verification finishes.
+preserves the current document and drafts. Search and offline signature verification
+use independent readers of the saved revision and reject files changed on disk.
+Never persist or log reader credentials. Cancellation is cooperative between
+page operations; cancelling signature verification discards its results.
 
 Signature-removal previews share one cached snapshot across pages. Rebuild it when
 the retained signatures change or native form values change, not on every zoom or

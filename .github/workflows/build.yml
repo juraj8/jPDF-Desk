@@ -14,123 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  image:
-    name: Resolve build container
-    runs-on: ubuntu-latest
-    outputs:
-      name: ${{ steps.image.outputs.name }}
-    steps:
-      - name: Resolve CI image
-        id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/ci-build:debian13" >> "$GITHUB_OUTPUT"
-
   linux:
-    name: ${{ matrix.name }}
-    needs: image
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    container:
-      image: ${{ needs.image.outputs.name }}
-    strategy:
-      fail-fast: false
-      max-parallel: 3
-      matrix:
-        include:
-          - preset: release-linux
-            name: Linux x64 packages
-          - preset: release-windows
-            name: Windows x64 installer
-          - preset: release-linux-static
-            name: Linux x64 standalone
-          - preset: release-linux-arm64
-            name: Linux ARM64 cross-build
-          - preset: release-windows-static
-            name: Windows x64 standalone
-    env:
-      BUILD_JOBS: "2"
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-      - name: Install AppImage tools
-        if: matrix.preset == 'release-linux'
-        run: |
-          mkdir -p /opt/appimage-tools
-          curl --fail --location --retry 3 \
-            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
-            -o /opt/appimage-tools/linuxdeploy
-          curl --fail --location --retry 3 \
-            https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage \
-            -o /opt/appimage-tools/linuxdeploy-plugin-appimage
-          chmod +x /opt/appimage-tools/*
-          echo /opt/appimage-tools >> "$GITHUB_PATH"
-      - name: Build, test, and package
-        run: bash script/ci-build.sh "${{ matrix.preset }}"
-      # Reuse native Qt/MuPDF outputs; distributable artifacts were already copied
-      # to dist/. Keep the enabled and disabled test reports separately.
-      - name: Build and test without OpenSSL
-        if: matrix.preset == 'release-linux'
-        run: |
-          cmake -S . -B .build/release-linux -DBUILD_TESTING=ON -DJPDF_DESK_WITH_OPENSSL=OFF
-          cmake --build .build/release-linux --parallel "$BUILD_JOBS"
-          ctest --test-dir .build/release-linux --output-on-failure --no-tests=error \
-            --output-junit test-results-no-openssl.xml
-      - name: Separate Linux packages
-        if: matrix.preset == 'release-linux'
-        run: |
-          set -euo pipefail
-          for format in appimage deb rpm; do
-            extension="$format"
-            if [[ "$format" == appimage ]]; then extension=AppImage; fi
-            directory="dist/release-linux-$format"
-            mkdir -p "$directory"
-            cp dist/release-linux/*."$extension" "$directory/"
-            (cd "$directory" && sha256sum ./* > SHA256SUMS)
-          done
-      - name: Upload Linux AppImage
-        if: matrix.preset == 'release-linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-linux-appimage
-          path: dist/release-linux-appimage/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload Linux DEB
-        if: matrix.preset == 'release-linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-linux-deb
-          path: dist/release-linux-deb/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload Linux RPM
-        if: matrix.preset == 'release-linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-linux-rpm
-          path: dist/release-linux-rpm/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload distribution artifacts
-        if: matrix.preset != 'release-linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.preset }}
-          path: dist/${{ matrix.preset }}/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Upload test diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.preset }}
-          path: |
-            .build/*/test-results*.xml
-            .build/*/Testing/Temporary/
-          if-no-files-found: ignore
-          retention-days: 14
+    uses: ./.github/workflows/build-linux.yml
 
   macos:
     name: macOS Apple Silicon bundle
@@ -234,8 +119,25 @@ jobs:
           set -euo pipefail
           mkdir release-assets
           output="$PWD/release-assets"
-          # Verify downloaded artifacts before preparing public release assets.
-          for preset in linux-appimage linux-deb linux-rpm linux-static linux-arm64 windows windows-static mac-arm64 linux-snap; do
+          # Require every listed artifact and verify its checksum before staging it.
+          required_artifacts=(
+            # Linux
+            linux-deb
+            linux-deb-ubuntu22.04
+            linux-rpm
+            linux-snap
+            linux-appimage
+            linux-static
+            linux-arm64
+
+            # Windows
+            windows
+            windows-static
+
+            # macOS
+            mac-arm64
+          )
+          for preset in "${required_artifacts[@]}"; do
             directory="artifacts/release-$preset"
             test -s "$directory/SHA256SUMS"
             (cd "$directory" && sha256sum --check SHA256SUMS)
@@ -251,7 +153,7 @@ jobs:
                 (cd "$directory" && zip "$output/jpdf-desk-$RELEASE_TAG-$preset.zip" jpdf-desk.exe)
                 ;;
               linux-appimage) cp "$directory"/*.AppImage "$output/" ;;
-              linux-deb) cp "$directory"/*.deb "$output/" ;;
+              linux-deb|linux-deb-ubuntu22.04) cp "$directory"/*.deb "$output/" ;;
               linux-rpm) cp "$directory"/*.rpm "$output/" ;;
               windows) cp "$directory"/*.exe "$output/" ;;
               mac-arm64) cp "$directory"/*.tar.gz "$output/" ;;

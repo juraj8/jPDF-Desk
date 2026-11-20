@@ -3,6 +3,8 @@ configure_file(app_info.h.in generated/app_info.h @ONLY)
 add_library(jpdf-desk-gui-lib STATIC
     app_identity.cpp
     app_identity.h
+    update_check.cpp
+    update_check.h
     ui/about_dialog.cpp
     ui/about_dialog.h
     ui/dialog_helpers.cpp
@@ -72,7 +74,7 @@ target_include_directories(jpdf-desk-gui-lib
 )
 target_link_libraries(jpdf-desk-gui-lib
     PUBLIC jpdf-desk-document jpdf-desk-printing Qt6::Widgets
-    PRIVATE jpdf-desk-image
+    PRIVATE jpdf-desk-image Qt6::Network
 )
 
 if(TARGET jpdf-desk-revocation-http)

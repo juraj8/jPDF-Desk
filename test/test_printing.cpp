@@ -155,6 +155,39 @@ int main(int argc, char **argv)
     printDocumentSnapshot(snapshot, {{{0, {}}}, {{1, {}}, {2, {}}}, {{2, {}}}}, printer, 0);
     result.open(printer.outputFileName());
     if (hasInk(result.render(0)) || snapshot.fields(0).isEmpty()) return 14;
+    // The raster of a very wide page is capped. Its centered 36-point bar must
+    // still print 36 points wide at actual size, not shrink with the raster.
+    const QString bannerPath = dir.filePath("banner.pdf");
+    ctx = fz_new_context(nullptr, nullptr, FZ_STORE_DEFAULT);
+    doc = pdf_create_document(ctx);
+    auto *content = fz_new_buffer(ctx, 64);
+    fz_append_string(ctx, content, "0 g 2982 32 36 36 re f\n");
+    auto *bannerPage = pdf_add_page(ctx, doc, {0, 0, 6000, 100}, 0, nullptr, content);
+    pdf_insert_page(ctx, doc, -1, bannerPage);
+    pdf_drop_obj(ctx, bannerPage);
+    fz_drop_buffer(ctx, content);
+    pdf_save_document(ctx, doc, QFile::encodeName(bannerPath).constData(), &pdf_default_write_options);
+    pdf_drop_document(ctx, doc);
+    fz_drop_context(ctx);
+    PdfDocument banner;
+    banner.open(bannerPath);
+    printer.setResolution(300);
+    printer.setOutputFileName(dir.filePath("actual-size.pdf"));
+    PrintOptions actualSize;
+    actualSize.scaling = PrintOptions::Scaling::ActualSize;
+    printDocument(banner, printer, 0, actualSize);
+    result.open(printer.outputFileName());
+    const QImage actual = result.renderForPrint(0, 72);
+    int widestInk = 0;
+    for (int y = 0; y < actual.height(); ++y) {
+        int rowInk = 0;
+        for (int x = 0; x < actual.width(); ++x)
+            rowInk += qGray(actual.pixel(x, y)) < 128;
+        widestInk = qMax(widestInk, rowInk);
+    }
+    if (qAbs(widestInk - 36) > 2) return 25;
+    printer.setResolution(150);
+
     // Printing an authenticated PDF must retain authentication, including when
     // a different password is pending for the next saved copy.
     original.setPassword("print-secret");

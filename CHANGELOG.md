@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.4.0-rc1 — 2026-11-20
+
+### Added
+
+- Notify users of newer stable GitHub releases at startup and in **About**.
+  Updates are downloaded and installed manually.
+- Provide a separate x86-64 DEB for Ubuntu 22.04 and 24.04, with CI install
+  checks on both versions.
+- Prompt to save, discard, or cancel before closing or replacing a PDF with
+  unsaved edits.
+
+### Changed
+
+- Maximize the window on the first successful PDF open. Later opens respect
+  the user's chosen window size.
+- Keep reusable signature images in the local library rather than embedding
+  them in exported PDF metadata.
+- Refresh the website, sample PDF instructions, and platform notes.
+
+### Fixed
+
+- Keep the selected page active even when scrolling cannot center it, so
+  annotations land on the intended page.
+- Prevent **Save As** from overwriting the source through a symlinked path.
+- Preserve physical dimensions in **Actual size** printing when large pages
+  are rasterized at a lower resolution.
+- Reject search and signature checks when the saved PDF has changed on disk.
+  Reopen the PDF to use the new revision.
+
 ## 1.3.0-rc2 — 2026-11-14
 
 ### Changed

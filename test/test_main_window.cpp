@@ -180,7 +180,12 @@ static int runTest(int argc, char **argv)
     // a press, move and release rather than merely being painted.
     // The UI must reflect injected capabilities, not assume OpenSSL is present.
     MainWindow noCrypto;
+    if (noCrypto.isMaximized()) return 102;
     noCrypto.openDocument(output);
+    if (!noCrypto.isMaximized()) return 103;
+    noCrypto.setWindowState(Qt::WindowNoState);
+    noCrypto.openDocument(output);
+    if (noCrypto.isMaximized()) return 104;
     if (noCrypto.findChild<QPushButton *>(QStringLiteral("signButton"))->isEnabled()
         || noCrypto.findChild<QPushButton *>(QStringLiteral("verifySignaturesButton"))->isEnabled()
         || !noCrypto.findChild<QAction *>(QStringLiteral("printButton"))->isEnabled()) return 84;

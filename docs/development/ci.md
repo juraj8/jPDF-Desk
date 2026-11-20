@@ -25,8 +25,9 @@ After Dockerfile changes, wait for publication and rerun builds.
 
 The [GitHub workflow](../../.github/workflows/build.yml) builds Linux, Windows,
 Apple Silicon macOS, and Snap packages. Native Linux/macOS tests run; Windows
-and ARM64 tests are only compiled. Windows builds omit digital signing;
-macOS bundles are unsigned and not notarized.
+and ARM64 tests are only compiled. Windows builds omit digital signing and
+verification; macOS bundles are unsigned and not notarized. CI builds a separate
+x86-64 Ubuntu DEB and smoke-tests it on Ubuntu 22.04 and 24.04.
 
 The native Linux package job first builds/tests with OpenSSL enabled, then
 reconfigures the same build directory with `JPDF_DESK_WITH_OPENSSL=OFF` and runs
@@ -42,7 +43,8 @@ its optional Snap job requires a Snapcraft/LXD shell runner.
 
 Update versions in `CMakeLists.txt` and `snap/snapcraft.yaml`, then push a version
 tag (for example, `v1.1.0`) to publish a GitHub Release after all builds succeed.
-Tags with a prerelease suffix (for example, `v1.1.0-rc1`) publish prereleases.
+Tags with a suffix (for example, `v1.1.0-rc1`) publish prereleases and are ignored
+by the app’s update check. Match the stable tag to the version in `CMakeLists.txt`.
 Snap Store publication is separate. Check workflow results and test binaries on
 the target OS before distribution.
 

@@ -2,7 +2,12 @@
 # Build one public CMake preset and collect distributable artifacts.
 set -euo pipefail
 
-preset=${1:?Usage: bash script/ci-build.sh PRESET}
+preset=${1:?Usage: bash script/ci-build.sh PRESET [--deb-only]}
+package_mode=${2:-}
+if [[ $# -gt 2 || ( -n "$package_mode" && ( "$preset" != release-linux || "$package_mode" != --deb-only ) ) ]]; then
+    printf 'Usage: bash script/ci-build.sh PRESET [--deb-only (release-linux only)]\n' >&2
+    exit 1
+fi
 jobs=${BUILD_JOBS:-2}
 case "$preset" in
     release-linux|release-windows|release-linux-static|release-linux-arm64|release-windows-static|release-mac-arm64) ;;
@@ -31,7 +36,11 @@ case "$preset" in
         set -- -DJPDF_DESK_WITH_OPENSSL=OFF
         ;;
     release-linux)
-        set -- -DJPDF_DESK_BUILD_APPIMAGE=ON
+        if [[ "$package_mode" == --deb-only ]]; then
+            set -- -DJPDF_DESK_BUILD_APPIMAGE=OFF
+        else
+            set -- -DJPDF_DESK_BUILD_APPIMAGE=ON
+        fi
         ;;
 esac
 cmake --preset "$preset" --fresh -DBUILD_TESTING=ON "$@"
@@ -55,10 +64,12 @@ mkdir -p "$output"
 case "$preset" in
     release-linux)
         cpack --preset release-linux-deb
-        cpack --preset release-linux-rpm
-        cmake --build "$build_dir" --target appimage --parallel "$jobs"
-        cp "$build_dir"/packages/*.deb "$build_dir"/packages/*.rpm \
-            "$build_dir"/packages/*.AppImage "$output/"
+        cp "$build_dir"/packages/*.deb "$output/"
+        if [[ "$package_mode" != --deb-only ]]; then
+            cpack --preset release-linux-rpm
+            cmake --build "$build_dir" --target appimage --parallel "$jobs"
+            cp "$build_dir"/packages/*.rpm "$build_dir"/packages/*.AppImage "$output/"
+        fi
         ;;
     release-windows)
         cpack --preset release-windows-installer

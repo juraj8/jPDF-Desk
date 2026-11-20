@@ -226,20 +226,29 @@ QVector<DigitalSignatureStatus> verifySavedPdf(fz_context *ctx, const QString &p
                                               const VerificationProvider &provider, const QString &documentPassword,
                                               const jpdf::crypto::ValidationTime &time)
 {
-    QVector<DigitalSignatureStatus> results;
     const QByteArray filename = path.toUtf8();
     const QByteArray password = documentPassword.toUtf8();
-    // Providers and all Qt allocations run outside MuPDF longjmp boundaries.
-    auto verifier = mupdf::own(ctx, provider.createVerifier(ctx), pdf_drop_verifier);
-    if (!verifier) throw std::runtime_error("Verification provider returned no verifier.");
     auto saved = mupdf::own(ctx, mupdf::call(ctx, [&]() noexcept {
         return pdf_open_document(ctx, filename.constData());
     }), pdf_drop_document);
-    pdf_obj *fields = mupdf::call(ctx, [&]() noexcept {
+    mupdf::call(ctx, [&]() noexcept {
         if (pdf_needs_password(ctx, saved.get()) &&
             !pdf_authenticate_password(ctx, saved.get(), password.constData()))
             fz_throw(ctx, FZ_ERROR_ARGUMENT, "Invalid PDF password");
-        pdf_obj *root = pdf_dict_get(ctx, pdf_trailer(ctx, saved.get()), PDF_NAME(Root));
+    });
+    return verifyOpenedPdf(ctx, saved.get(), provider, time);
+}
+
+QVector<DigitalSignatureStatus> verifyOpenedPdf(fz_context *ctx, pdf_document *saved,
+                                               const VerificationProvider &provider,
+                                               const jpdf::crypto::ValidationTime &time)
+{
+    QVector<DigitalSignatureStatus> results;
+    // Providers and all Qt allocations run outside MuPDF longjmp boundaries.
+    auto verifier = mupdf::own(ctx, provider.createVerifier(ctx), pdf_drop_verifier);
+    if (!verifier) throw std::runtime_error("Verification provider returned no verifier.");
+    pdf_obj *fields = mupdf::call(ctx, [&]() noexcept {
+        pdf_obj *root = pdf_dict_get(ctx, pdf_trailer(ctx, saved), PDF_NAME(Root));
         pdf_obj *form = pdf_dict_get(ctx, root, PDF_NAME(AcroForm));
         pdf_obj *fields = pdf_dict_get(ctx, form, PDF_NAME(Fields));
         if (fields && !pdf_is_array(ctx, fields))
@@ -249,7 +258,7 @@ QVector<DigitalSignatureStatus> verifySavedPdf(fz_context *ctx, const QString &p
     const int count = mupdf::call(ctx, [&]() noexcept { return pdf_array_len(ctx, fields); });
     for (int i = 0; i < count; ++i) {
         pdf_obj *field = mupdf::call(ctx, [&]() noexcept { return pdf_array_get(ctx, fields, i); });
-        checkSignatureFields(ctx, saved.get(), field, verifier.get(), provider, time, results);
+        checkSignatureFields(ctx, saved, field, verifier.get(), provider, time, results);
     }
     return results;
 }

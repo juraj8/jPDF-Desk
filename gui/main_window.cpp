@@ -342,6 +342,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::openDocument(const QString &path)
 {
     if (!confirmUnsavedChanges()) return;
+    const bool firstDocument = pdf_.path().isEmpty();
     try {
         QString password;
         LoadedPdf loaded;
@@ -374,6 +375,8 @@ void MainWindow::openDocument(const QString &path)
         showDocument(true, &loaded);
         documentModified_ = false;
         setWindowTitle(tr("jPDF Desk — %1").arg(QFileInfo(path).fileName()));
+        if (firstDocument && !isFullScreen() && !isMaximized())
+            setWindowState(windowState() | Qt::WindowMaximized);
     } catch (const std::exception &e) {
         const QString error = QString::fromUtf8(e.what());
         if (error.contains(QStringLiteral("unknown encryption handler: 'FOPN_foweb'")))
